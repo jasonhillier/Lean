@@ -13,6 +13,7 @@
  * limitations under the License.
 */
 
+using System.Collections.Generic;
 using QuantConnect.Data;
 
 namespace QuantConnect.Algorithm.CSharp
@@ -26,22 +27,23 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="trading and orders" />
     public class BasicTemplateAlgorithm : QCAlgorithm
     {
-        private Symbol _spy = QuantConnect.Symbol.Create("SPY", SecurityType.Equity, Market.USA);
+        private Symbol _spy = QuantConnect.Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
 
         /// <summary>
         /// Initialise the data and resolution required, as well as the cash and start-end dates for your algorithm. All algorithms must initialized.
         /// </summary>
         public override void Initialize()
         {
-            SetStartDate(2013, 10, 07);  //Set Start Date
-            SetEndDate(2013, 10, 11);    //Set End Date
+            SetStartDate(2014, 06, 06);  //Set Start Date
+            SetEndDate(2014, 06, 06);    //Set End Date
             SetCash(100000);             //Set Strategy Cash
 
             // Find more symbols here: http://quantconnect.com/data
             // Forex, CFD, Equities Resolutions: Tick, Second, Minute, Hour, Daily.
             // Futures Resolution: Tick, Second, Minute
             // Options Resolution: Minute Only.
-            AddEquity("SPY", Resolution.Minute);
+            AddEquity("AAPL", Resolution.Minute);
+            AddOption("AAPL", Resolution.Minute);
 
             // There are other assets with similar methods. See "Selecting Options" etc for more details.
             // AddFuture, AddForex, AddCfd, AddOption
@@ -53,6 +55,15 @@ namespace QuantConnect.Algorithm.CSharp
         /// <param name="data">Slice object keyed by symbol containing the stock data</param>
         public override void OnData(Slice data)
         {
+            if (!data.ContainsKey(_spy) || !data.Bars.ContainsKey(_spy))
+                return;
+            
+            var c = this.OptionChainProvider.GetOptionContractList(_spy, data.Bars[_spy].EndTime);
+            if (c!=null)
+            {
+                var con = new List<QuantConnect.Symbol>(c);
+                Debug("OPTION COUNT:" + con.Count);
+            }
             if (!Portfolio.Invested)
             {
                 SetHoldings(_spy, 1);

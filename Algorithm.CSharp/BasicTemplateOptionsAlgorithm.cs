@@ -15,6 +15,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
@@ -32,25 +33,30 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="filter selection" />
     public class BasicTemplateOptionsAlgorithm : QCAlgorithm
     {
-        private const string UnderlyingTicker = "GOOG";
+        private const string UnderlyingTicker = "AAPL";
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
         public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
+        private OptionStrategy _Strategy;
 
         public override void Initialize()
         {
-            SetStartDate(2015, 12, 24);
-            SetEndDate(2015, 12, 24);
+            //GOOG
+            //SetStartDate(2015, 12, 24);
+            //SetEndDate(2015, 12, 24);
+
+            //AAPL
+            SetStartDate(2014, 06, 06);
+            SetEndDate(2014, 06, 06);
             SetCash(100000);
 
-            var equity = AddEquity(UnderlyingTicker);
-            var option = AddOption(UnderlyingTicker);
-
-            // set our strike/expiry filter for this option chain
-            option.SetFilter(u => u.Strikes(-2, +2)
-                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(180)));
+            var equity = AddEquity(UnderlyingTicker, Resolution.Minute);
+            var option = AddOption(UnderlyingTicker, Resolution.Minute);
 
             // use the underlying equity as the benchmark
             SetBenchmark(equity.Symbol);
+
+            // init strategy
+            _Strategy = new OptionStrategy(this, option);
         }
 
         /// <summary>
@@ -59,24 +65,15 @@ namespace QuantConnect.Algorithm.CSharp
         /// <param name="slice">The current slice of data keyed by symbol string</param>
         public override void OnData(Slice slice)
         {
-            if (!Portfolio.Invested && IsMarketOpen(OptionSymbol))
+            if (IsMarketOpen(OptionSymbol))
             {
-                OptionChain chain;
-                if (slice.OptionChains.TryGetValue(OptionSymbol, out chain))
+                if (_Strategy.AggregateProfitPercentage(slice) > .1m)
+                    _Strategy.CloseAll();
+                else if (!_Strategy.IsInvested() ||
+                         _Strategy.AggregateProfitPercentage(slice) < -.5m)
                 {
-                    // we find at the money (ATM) put contract with farthest expiration
-                    var atmContract = chain
-                        .OrderByDescending(x => x.Expiry)
-                        .ThenBy(x => Math.Abs(chain.Underlying.Price - x.Strike))
-                        .ThenByDescending(x => x.Right)
-                        .FirstOrDefault();
-
-                    if (atmContract != null)
-                    {
-                        // if found, trade it
-                        MarketOrder(atmContract.Symbol, 1);
-                        MarketOnCloseOrder(atmContract.Symbol, -1);
-                    }
+                    if (_Strategy.AverageBasePrice(slice)
+                    _Strategy.MarketBuyNextTierOptions(slice);
                 }
             }
         }

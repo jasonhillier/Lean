@@ -146,7 +146,7 @@ namespace QuantConnect.AlgorithmFactory
             //File does not exist.
             if (!File.Exists(assemblyPath))
             {
-                errorMessage = "Loader.TryCreatePythonAlgorithm(): Unable to find py file: " + assemblyPath;
+                errorMessage = $"Loader.TryCreatePythonAlgorithm(): Unable to find py file: {assemblyPath}";
                 return false;
             }
 
@@ -168,25 +168,24 @@ namespace QuantConnect.AlgorithmFactory
                 // Import Python module
                 using (Py.GIL())
                 {
-                    Log.Trace("Loader.TryCreatePythonAlgorithm(): Importing python module " + moduleName);
+                    Log.Trace($"Loader.TryCreatePythonAlgorithm(): Python version {PythonEngine.Version}: Importing python module {moduleName}");
                     var module = Py.Import(moduleName);
 
                     if (module == null)
                     {
-                        errorMessage = "Loader.TryCreatePythonAlgorithm(): Unable to import python module " + assemblyPath + ". Check for errors in the python scripts.";
+                        errorMessage = $"Loader.TryCreatePythonAlgorithm(): Unable to import python module {assemblyPath}. Check for errors in the python scripts.";
                         return false;
                     }
 
                     Log.Trace("Loader.TryCreatePythonAlgorithm(): Creating IAlgorithm instance.");
 
                     algorithmInstance = new AlgorithmPythonWrapper(module);
-                    ObjectActivator.SetPythonModule(module);
                 }
             }
             catch (Exception e)
             {
                 Log.Error(e);
-                errorMessage = "Loader.TryCreatePythonAlgorithm(): Unable to import python module " + assemblyPath + ". " + e.Message;
+                errorMessage = $"Loader.TryCreatePythonAlgorithm(): Unable to import python module {assemblyPath}. {e.Message}";
             }
 
             //Successful load.

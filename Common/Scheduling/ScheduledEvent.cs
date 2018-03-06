@@ -248,7 +248,7 @@ namespace QuantConnect.Scheduling
 
                 // This scheduled event failed, so don't repeat the same event
                 _needsMoveNext = true;
-                throw new ScheduledEventException(ex.ToString());
+                throw new ScheduledEventException(_name, ex.Message, ex);
             }
         }
     }
@@ -259,17 +259,19 @@ namespace QuantConnect.Scheduling
     public class ScheduledEventException : Exception
     {
         /// <summary>
-        /// Exception message
+        /// Gets the name of the scheduled event
         /// </summary>
-        public string ScheduledEventExceptionMessage { get; }
+        public string ScheduledEventName { get; }
 
         /// <summary>
         /// ScheduledEventException constructor
         /// </summary>
-        /// <param name="exceptionMessage">The exception as a string</param>
-        public ScheduledEventException(string exceptionMessage) : base(exceptionMessage)
+        /// <param name="name">The name of the scheduled event</param>
+        /// <param name="message">The exception as a string</param>
+        /// <param name="innerException">The exception that is the cause of the current exception</param>
+        public ScheduledEventException(string name, string message, Exception innerException) : base(message, innerException)
         {
-            ScheduledEventExceptionMessage = exceptionMessage;
+            ScheduledEventName = name;
         }
     }
 }

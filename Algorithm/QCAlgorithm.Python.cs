@@ -34,6 +34,8 @@ namespace QuantConnect.Algorithm
 {
     public partial class QCAlgorithm
     {
+        private readonly Dictionary<IntPtr, PythonActivator> _pythonActivators = new Dictionary<IntPtr, PythonActivator>();
+
         public PandasConverter PandasConverter { get; private set; }
 
         /// <summary>
@@ -368,6 +370,39 @@ namespace QuantConnect.Algorithm
                     indicator.InvokeMethod("Update", new[] { consolidated.ToPython() });
                 }
             };
+        }
+
+        /// <summary>
+        /// Plot a chart using string series name, with value.
+        /// </summary>
+        /// <param name="series">Name of the plot series</param>
+        /// <param name="pyObject">PyObject with the value to plot</param>
+        /// <seealso cref="Plot(string,decimal)"/>
+        public void Plot(string series, PyObject pyObject)
+        {
+            IIndicator<IndicatorDataPoint> indicator;
+
+            using (Py.GIL())
+            {
+                var pythonType = pyObject.GetPythonType();
+
+                try
+                {
+                    var type = pythonType.As<Type>();
+                    indicator = pyObject.AsManagedObject(type) as IIndicator<IndicatorDataPoint>;
+
+                    if (indicator == null)
+                    {
+                        throw new ArgumentException();
+                    }
+                }
+                catch
+                {
+                    throw new ArgumentException($"QCAlgorithm.Plot(): The last argument should be a QuantConnect Indicator object, {pythonType.Repr()} was provided.");
+                }
+            }
+
+            Plot(series, indicator.Current.Value);
         }
 
         /// <summary>
@@ -869,22 +904,26 @@ namespace QuantConnect.Algorithm
         /// <returns>Type object</returns>
         private Type CreateType(PyObject type)
         {
-            using (Py.GIL())
+            PythonActivator pythonType;
+            if (!_pythonActivators.TryGetValue(type.Handle, out pythonType))
             {
-                var an = new AssemblyName(type.Repr().Split('.')[1].Replace("\'>", ""));
-                var assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run);
-                var moduleBuilder = assemblyBuilder.DefineDynamicModule("MainModule");
-                return moduleBuilder.DefineType(an.Name,
-                        TypeAttributes.Public |
-                        TypeAttributes.Class |
-                        TypeAttributes.AutoClass |
-                        TypeAttributes.AnsiClass |
-                        TypeAttributes.BeforeFieldInit |
-                        TypeAttributes.AutoLayout,
-                        // If the type has IsAuthCodeSet member, it is a PythonQuandl
-                        type.HasAttr("IsAuthCodeSet") ? typeof(PythonQuandl) : typeof(PythonData))
-                    .CreateType();
+                AssemblyName an;
+                using (Py.GIL())
+                {
+                    an = new AssemblyName(type.Repr().Split('\'')[1]);
+                }
+                var moduleBuilder = AppDomain.CurrentDomain
+                    .DefineDynamicAssembly(an, AssemblyBuilderAccess.Run)
+                    .DefineDynamicModule("MainModule");
+
+                pythonType = new PythonActivator(moduleBuilder.DefineType(an.Name).CreateType(), type);
+
+                ObjectActivator.AddActivator(pythonType.Type, pythonType.Factory);
+
+                // Save to prevent future additions
+                _pythonActivators.Add(type.Handle, pythonType);
             }
+            return pythonType.Type;
         }
     }
 }

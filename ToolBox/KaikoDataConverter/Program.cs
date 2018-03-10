@@ -14,7 +14,7 @@ namespace QuantConnect.ToolBox.KaikoDataConverter
     /// <summary>
     /// Console application for converting Kaiko data into Lean data format
     /// </summary>
-    class Program
+    class Program2
     {
         static void Main(string[] args)
         {

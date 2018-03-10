@@ -15,6 +15,7 @@
 
 using System.Collections.Generic;
 using QuantConnect.Data;
+using QuantConnect.Indicators;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -28,6 +29,7 @@ namespace QuantConnect.Algorithm.CSharp
     public class BasicTemplateAlgorithm : QCAlgorithm
     {
         private Symbol _spy = QuantConnect.Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
+        private RateOfChange _roc;
 
         /// <summary>
         /// Initialise the data and resolution required, as well as the cash and start-end dates for your algorithm. All algorithms must initialized.
@@ -47,6 +49,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             // There are other assets with similar methods. See "Selecting Options" etc for more details.
             // AddFuture, AddForex, AddCfd, AddOption
+            _roc = new RateOfChange(9);
         }
 
         /// <summary>

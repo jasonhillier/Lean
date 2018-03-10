@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
+using QuantConnect.Indicators;
 using QuantConnect.Orders;
 
 namespace QuantConnect.Algorithm.CSharp
@@ -33,30 +34,31 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="filter selection" />
     public class BasicTemplateOptionsAlgorithm : QCAlgorithm
     {
-        private const string UnderlyingTicker = "AAPL";
+        private const Resolution RESOLUTION = Resolution.Hour;
+        private const string UnderlyingTicker = "VXX";
+        private const int _ROC_THRESHOLD = 10;
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
         public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
+        private RateOfChangePercent _rocp;
 
         public override void Initialize()
         {
-            //GOOG
-            //SetStartDate(2015, 12, 24);
-            //SetEndDate(2015, 12, 24);
-
-            //AAPL
-            SetStartDate(2014, 06, 06);
-            SetEndDate(2014, 06, 06);
+            //
+            SetStartDate(2017, 12, 28);
+            SetEndDate(2018, 03, 09);
             SetCash(100000);
 
-            var equity = AddEquity(UnderlyingTicker, Resolution.Minute);
-            var option = AddOption(UnderlyingTicker, Resolution.Minute);
+            var equity = AddEquity(UnderlyingTicker, RESOLUTION);
+            //var option = AddOption(UnderlyingTicker, RESOLUTION);
 
             // use the underlying equity as the benchmark
             SetBenchmark(equity.Symbol);
 
             // init strategy
-            _Strategy = new OptionStrategy(this, option);
+            //_Strategy = new OptionStrategy(this, option);
+
+            _rocp = ROCP(Underlying, 9, RESOLUTION);
         }
 
         /// <summary>
@@ -67,13 +69,19 @@ namespace QuantConnect.Algorithm.CSharp
         {
             if (IsMarketOpen(OptionSymbol))
             {
-                if (_Strategy.AggregateProfitPercentage(slice) > .1m)
-                    _Strategy.CloseAll();
-                else if (!_Strategy.IsInvested() ||
-                         _Strategy.AggregateProfitPercentage(slice) < -.5m)
+                if (_rocp.Current.Value >= _ROC_THRESHOLD)
                 {
-                    if (_Strategy.AverageBasePrice(slice)
-                    _Strategy.MarketBuyNextTierOptions(slice);
+                    Console.WriteLine("<{0}>\tROCP= {1:00}", slice.Time.ToString(), _rocp.Current.Value);
+                    /*
+                    if (_Strategy.AggregateProfitPercentage(slice) > .1m)
+                        _Strategy.CloseAll();
+                    else if (!_Strategy.IsInvested() ||
+                             _Strategy.AggregateProfitPercentage(slice) < -.5m)
+                    {
+                        //if (_Strategy.AverageBasePrice(slice);
+                        _Strategy.MarketBuyNextTierOptions(slice);
+                    }
+                    */
                 }
             }
         }

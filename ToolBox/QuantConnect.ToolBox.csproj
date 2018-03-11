@@ -37,7 +37,7 @@
     <LangVersion>6</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>QuantConnect.ToolBox.GoogleDownloader.Program</StartupObject>
+    <StartupObject>QuantConnect.ToolBox.IBConverter.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DotNetZip, Version=1.10.1.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
@@ -156,6 +156,7 @@
   <ItemGroup>
     <Compile Include="GDAXDownloader\GDAXDownloader.cs" />
     <Compile Include="GDAXDownloader\Program.cs" />
+    <Compile Include="IBConverter\Program.cs" />
     <Compile Include="GzipStreamProvider.cs" />
     <Compile Include="IVolatilityEquityConverter\Program.cs" />
     <Compile Include="TickAggregator.cs" />

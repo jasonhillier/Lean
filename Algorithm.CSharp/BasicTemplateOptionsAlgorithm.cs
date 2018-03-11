@@ -34,7 +34,8 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="filter selection" />
     public class BasicTemplateOptionsAlgorithm : QCAlgorithm
     {
-        private const Resolution RESOLUTION = Resolution.Hour;
+        private const Resolution RESOLUTION = Resolution.Minute;
+		private const int MINUTE_RATE = 15;
         private const string UnderlyingTicker = "VXX";
         private const int _ROC_THRESHOLD = 10;
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
@@ -45,7 +46,7 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             //
-            SetStartDate(2017, 12, 28);
+            SetStartDate(2015, 01, 01);
             SetEndDate(2018, 03, 09);
             SetCash(100000);
 
@@ -55,10 +56,10 @@ namespace QuantConnect.Algorithm.CSharp
             // use the underlying equity as the benchmark
             SetBenchmark(equity.Symbol);
 
-            // init strategy
-            //_Strategy = new OptionStrategy(this, option);
+			// init strategy
+			//_Strategy = new OptionStrategy(this, option);
 
-            _rocp = ROCP(Underlying, 9, RESOLUTION);
+			_rocp = ROCP(Underlying, 9* MINUTE_RATE, RESOLUTION);
         }
 
         /// <summary>

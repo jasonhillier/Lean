@@ -21,6 +21,7 @@ using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Indicators;
 using QuantConnect.Orders;
+using QuantConnect.Data.Consolidators;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -56,24 +57,24 @@ namespace QuantConnect.Algorithm.CSharp
             // use the underlying equity as the benchmark
             SetBenchmark(equity.Symbol);
 
+			var consolidator = new TradeBarConsolidator(TimeSpan.FromMinutes(MINUTE_RATE));
+			consolidator.DataConsolidated += Consolidator_DataConsolidated;
+			_rocp = new RateOfChangePercent(9);
+			RegisterIndicator(Underlying, _rocp, consolidator);
+			SubscriptionManager.AddConsolidator(Underlying, consolidator);
+
 			// init strategy
 			//_Strategy = new OptionStrategy(this, option);
-
-			_rocp = ROCP(Underlying, 9* MINUTE_RATE, RESOLUTION);
         }
 
-        /// <summary>
-        /// Event - v3.0 DATA EVENT HANDLER: (Pattern) Basic template for user to override for receiving all subscription data in a single event
-        /// </summary>
-        /// <param name="slice">The current slice of data keyed by symbol string</param>
-        public override void OnData(Slice slice)
-        {
-            if (IsMarketOpen(OptionSymbol))
-            {
-                if (_rocp.Current.Value >= _ROC_THRESHOLD)
-                {
-                    Console.WriteLine("<{0}>\tROCP= {1:00}", slice.Time.ToString(), _rocp.Current.Value);
-                    /*
+		private void Consolidator_DataConsolidated(object sender, TradeBar e)
+		{
+			if (IsMarketOpen(OptionSymbol))
+			{
+				if (_rocp.Current.Value >= _ROC_THRESHOLD)
+				{
+					Console.WriteLine("<{0}>\tROCP= {1:00}", e.Time.ToString(), _rocp.Current.Value);
+					/*
                     if (_Strategy.AggregateProfitPercentage(slice) > .1m)
                         _Strategy.CloseAll();
                     else if (!_Strategy.IsInvested() ||
@@ -83,9 +84,9 @@ namespace QuantConnect.Algorithm.CSharp
                         _Strategy.MarketBuyNextTierOptions(slice);
                     }
                     */
-                }
-            }
-        }
+				}
+			}
+		}
 
         /// <summary>
         /// Order fill event handler. On an order fill update the resulting information is passed to this method.

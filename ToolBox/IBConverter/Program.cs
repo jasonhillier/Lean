@@ -26,17 +26,30 @@ namespace QuantConnect.ToolBox.IBConverter
 {
 	class Program
 	{
+        private static bool _importOptions = false;
+        private static bool _importEquity = false;
 		/// <summary>
 		/// QuantConnect Google Downloader For LEAN Algorithmic Trading Engine.
 		/// Original by @chrisdk2015, tidied by @jaredbroad
 		/// </summary>
 		public static void Main(string[] args)
 		{
-			if (args.Length != 1)
+			if (args.Length < 1)
 			{
-				Console.WriteLine("Usage: IBConverter IMPORT_DIR");
+				Console.WriteLine("Usage: IBConverter IMPORT_DIR -o -e");
 				Environment.Exit(1);
 			}
+
+            foreach(var arg in args)
+            {
+                if (arg == "-o")
+                    _importOptions = true;
+                if (arg == "-e")
+                    _importEquity = true;
+            }
+
+            //setup logging
+            Log.LogHandler = new CompositeLogHandler(new ILogHandler[] { new ConsoleLogHandler() });
 
 			try
 			{
@@ -50,68 +63,10 @@ namespace QuantConnect.ToolBox.IBConverter
 				//var date = GetDate(directory);
 				foreach (var file in System.IO.Directory.EnumerateFiles(directory))
 				{
-					if (!file.Contains("historical_data"))
-						continue;
-
-					Console.WriteLine("Processing {0}...", file);
-					
-					var symbol = GetSymbol(file);
-					TimeSpan timeSpan = new TimeSpan(0, 15, 0);
-					var symbolObject = Symbol.Create(symbol, SecurityType.Equity, Market.USA);
-					var fileContents = File.ReadAllText(file);
-
-					// Load settings from config.json
-					var dataDirectory = Config.Get("data-directory", "../../../Data");
-
-					using (StringReader reader = new StringReader(fileContents))
-					{
-						if (!reader.ReadLine().StartsWith("open,high,low,close,volume,bar_size,date_time"))
-						{
-							throw new Exception("Invalid file format: " + file);
-						}
-
-						var bars = new List<BaseData>();
-
-						string line = reader.ReadLine();
-						while(!String.IsNullOrEmpty(line))
-						{
-							var splits = line.Split(',');
-
-							var date = DateTime.Parse(splits[6]);
-							
-							var bar = new TradeBar(
-								date,
-								symbolObject,
-								decimal.Parse(splits[0]),
-								decimal.Parse(splits[1]),
-								decimal.Parse(splits[2]),
-								decimal.Parse(splits[3]),
-								decimal.Parse(splits[4]),
-								timeSpan);
-
-							bars.Add(bar);
-
-							line = reader.ReadLine();
-						}
-
-						Console.WriteLine("Found {0} bars", bars.Count);
-
-						var writer = new LeanDataWriter(Resolution.Minute, symbolObject, dataDirectory);
-						writer.Write(bars);
-
-					}
-
-					// Create an instance of the downloader
-					/*
-					const string market = Market.USA;
-					// Download the data
-					var symbolObject = Symbol.Create(symbol, SecurityType.Equity, market);
-					var data = downloader.Get(symbolObject, resolution, startDate, endDate);
-
-					// Save the data
-					var writer = new LeanDataWriter(resolution, symbolObject, dataDirectory);
-					writer.Write(data);
-					*/
+                    if (file.Contains("historical_data"))
+                        importEquity(file);
+                    else if (file.Contains("historical_OPTIONS"))
+                        importOptions(file);
 				}
 			}
 			catch (Exception err)
@@ -119,6 +74,123 @@ namespace QuantConnect.ToolBox.IBConverter
 				Log.Error(err);
 			}
 		}
+
+        private static void importEquity(string file)
+        {
+            if (!_importEquity)
+                return;
+            Log.Trace("Processing equity {0}...", file);
+
+            var symbol = GetSymbol(file);
+            TimeSpan timeSpan = new TimeSpan(0, 15, 0);
+            var symbolObject = Symbol.Create(symbol, SecurityType.Equity, Market.USA);
+            var fileContents = File.ReadAllText(file);
+
+            // Load settings from config.json
+            var dataDirectory = Config.Get("data-directory", "../../../Data");
+
+            using (StringReader reader = new StringReader(fileContents))
+            {
+                if (!reader.ReadLine().StartsWith("open,high,low,close,volume,bar_size,date_time"))
+                {
+                    throw new Exception("Invalid file format: " + file);
+                }
+
+                var bars = new List<BaseData>();
+
+                string line = reader.ReadLine();
+                while (!String.IsNullOrEmpty(line))
+                {
+                    var splits = line.Split(',');
+
+                    var date = DateTime.Parse(splits[6]);
+
+                    var bar = new TradeBar(
+                        date,
+                        symbolObject,
+                        decimal.Parse(splits[0]),
+                        decimal.Parse(splits[1]),
+                        decimal.Parse(splits[2]),
+                        decimal.Parse(splits[3]),
+                        decimal.Parse(splits[4]),
+                        timeSpan);
+
+                    bars.Add(bar);
+
+                    line = reader.ReadLine();
+                }
+
+                Log.Trace("Found {0} bars", bars.Count);
+
+                var writer = new LeanDataWriter(Resolution.Minute, symbolObject, dataDirectory);
+                writer.Write(bars);
+            }
+        }
+
+        private static void importOptions(string file)
+        {
+            if (!_importOptions)
+                return;
+            
+            Log.Trace("Processing options {0}...", file);
+
+            var underlying = GetSymbol(file);
+            TimeSpan timeSpan = new TimeSpan(0, 15, 0);
+            var underlyingSymbol = Symbol.Create(underlying, SecurityType.Equity, Market.USA);
+            var fileContents = File.ReadAllText(file);
+
+            // Load settings from config.json
+            var dataDirectory = Config.Get("data-directory", "../../../Data");
+
+            using (StringReader reader = new StringReader(fileContents))
+            {
+                if (!reader.ReadLine().StartsWith("UNDERLYING_SYMBOL,OPT_CONTRACT_ID,EXCHANGE,MULTIPLIER,EXPIRATION_DATE,RIGHT,STRIKE,BAR_TIME,BAR_SIZE,OPEN_PRICE,HIGH_PRICE,LOW_PRICE,CLOSE_PRICE"))
+                {
+                    throw new Exception("Invalid file format: " + file);
+                }
+
+                var bars = new List<BaseData>();
+
+                string line = reader.ReadLine();
+                while (!String.IsNullOrEmpty(line))
+                {
+                    var splits = line.Split(',');
+
+                    var optionSymbol = Symbol.CreateOption(
+                        underlying,
+                        Market.USA,
+                        OptionStyle.American,
+                        (splits[5] == "PUT" ? OptionRight.Put : OptionRight.Call),
+                        decimal.Parse(splits[6]),
+                        DateTime.Parse(splits[4])
+                    );
+                    //var optionSymbol = new OptionContract(splits[0], underlyingSymbol);
+
+                    var date = DateTime.Parse(splits[7]);
+
+                    var bar = new TradeBar(
+                        date,
+                        optionSymbol,
+                        decimal.Parse(splits[9]),
+                        decimal.Parse(splits[10]),
+                        decimal.Parse(splits[11]),
+                        decimal.Parse(splits[12]),
+                        0,
+                        timeSpan);
+
+                    bars.Add(bar);
+
+                    line = reader.ReadLine();
+                }
+
+                Log.Trace("Found {0} bars", bars.Count);
+
+                //var writer = new OptionDataWriter(o
+
+                //var writer = new LeanDataWriter(Resolution.Minute, symbolObject, dataDirectory);
+                //writer.Write(bars);
+            }
+        }
 
 		/// <summary>
 		/// Extract the symbol from the path

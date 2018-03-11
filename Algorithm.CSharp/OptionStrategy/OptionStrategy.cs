@@ -110,6 +110,10 @@ namespace QuantConnect.Algorithm.CSharp
         {
             OptionChain chain = null;
             slice.OptionChains.TryGetValue(_OptionSymbol, out chain);
+			if (chain == null)
+			{
+				Console.WriteLine("<{0}> No option chain here!", slice.Time.ToString());
+			}
 
             return chain;
         }

@@ -43,8 +43,9 @@ namespace QuantConnect.Algorithm.CSharp
         public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
         private RateOfChangePercent _rocp;
+		private Slice _lastSlice;
 
-        public override void Initialize()
+		public override void Initialize()
         {
             //
             SetStartDate(2015, 01, 01);
@@ -52,7 +53,7 @@ namespace QuantConnect.Algorithm.CSharp
             SetCash(100000);
 
             var equity = AddEquity(UnderlyingTicker, RESOLUTION);
-            //var option = AddOption(UnderlyingTicker, RESOLUTION);
+            var option = AddOption(UnderlyingTicker, RESOLUTION);
 
             // use the underlying equity as the benchmark
             SetBenchmark(equity.Symbol);
@@ -64,7 +65,7 @@ namespace QuantConnect.Algorithm.CSharp
 			SubscriptionManager.AddConsolidator(Underlying, consolidator);
 
 			// init strategy
-			//_Strategy = new OptionStrategy(this, option);
+			_Strategy = new OptionStrategy(this, option);
         }
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
@@ -74,6 +75,12 @@ namespace QuantConnect.Algorithm.CSharp
 				if (_rocp.Current.Value >= _ROC_THRESHOLD)
 				{
 					Console.WriteLine("<{0}>\tROCP= {1:00}", e.Time.ToString(), _rocp.Current.Value);
+
+					if (!_Strategy.IsInvested())
+					{
+						//e.
+						_Strategy.MarketBuyNextTierOptions(_lastSlice);
+					}
 					/*
                     if (_Strategy.AggregateProfitPercentage(slice) > .1m)
                         _Strategy.CloseAll();
@@ -88,12 +95,21 @@ namespace QuantConnect.Algorithm.CSharp
 			}
 		}
 
-        /// <summary>
-        /// Order fill event handler. On an order fill update the resulting information is passed to this method.
-        /// </summary>
-        /// <param name="orderEvent">Order event details containing details of the evemts</param>
-        /// <remarks>This method can be called asynchronously and so should only be used by seasoned C# experts. Ensure you use proper locks on thread-unsafe objects</remarks>
-        public override void OnOrderEvent(OrderEvent orderEvent)
+		/// <summary>
+		/// Event - v3.0 DATA EVENT HANDLER: (Pattern) Basic template for user to override for receiving all subscription data in a single event
+		/// </summary>
+		/// <param name="slice">The current slice of data keyed by symbol string</param>
+		public override void OnData(Slice slice)
+		{
+			_lastSlice = slice;
+		}
+
+		/// <summary>
+		/// Order fill event handler. On an order fill update the resulting information is passed to this method.
+		/// </summary>
+		/// <param name="orderEvent">Order event details containing details of the evemts</param>
+		/// <remarks>This method can be called asynchronously and so should only be used by seasoned C# experts. Ensure you use proper locks on thread-unsafe objects</remarks>
+		public override void OnOrderEvent(OrderEvent orderEvent)
         {
             Log(orderEvent.ToString());
         }

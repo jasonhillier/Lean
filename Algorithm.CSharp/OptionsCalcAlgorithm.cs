@@ -33,27 +33,27 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="using data" />
     /// <meta name="tag" content="options" />
     /// <meta name="tag" content="filter selection" />
-    public class BasicTemplateOptionsAlgorithm : QCAlgorithm
+    public class OptionsCalcAlgorithm : QCAlgorithm
     {
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
-        private const string UnderlyingTicker = "VXX";
+        private const string UnderlyingTicker = "AAPL";
         private const int _ROC_THRESHOLD = 10;
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
         public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
-        private OptionStrategy _Strategy;
+        private OptionStatistics _Statistics;
         private RateOfChangePercent _rocp;
 		private Slice _lastSlice;
 
 		public override void Initialize()
         {
 			//AAPL
-			//SetStartDate(2014, 06, 06);
-			//SetEndDate(2014, 06, 06);
+			SetStartDate(2014, 06, 06);
+			SetEndDate(2014, 06, 06);
 
 			//
-			SetStartDate(2018, 03, 01);
-			SetEndDate(2018, 03, 01);
+			//SetStartDate(2018, 03, 01);
+			//SetEndDate(2018, 03, 01);
 			//SetStartDate(2015, 01, 01);
 			//SetStartDate(2018, 02, 15);
 			//SetEndDate(2018, 03, 09);
@@ -72,35 +72,16 @@ namespace QuantConnect.Algorithm.CSharp
 			SubscriptionManager.AddConsolidator(Underlying, consolidator);
 
 			// init strategy
-			_Strategy = new OptionStrategy(this, option);
+			_Statistics = new OptionStatistics(this, option);
         }
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
 		{
 			if (IsMarketOpen(OptionSymbol))
 			{
-				//a
-				_Strategy.MarketBuyNextTierOptions(_lastSlice);
-
-				if (_rocp.Current.Value >= _ROC_THRESHOLD)
+				if (_Statistics.ComputeChain(_lastSlice, e.EndTime))
 				{
-					Console.WriteLine("<{0}>\tROCP= {1:00}", e.Time.ToString(), _rocp.Current.Value);
-
-					if (!_Strategy.IsInvested())
-					{
-						//e.
-						_Strategy.MarketBuyNextTierOptions(_lastSlice);
-					}
-					/*
-                    if (_Strategy.AggregateProfitPercentage(slice) > .1m)
-                        _Strategy.CloseAll();
-                    else if (!_Strategy.IsInvested() ||
-                             _Strategy.AggregateProfitPercentage(slice) < -.5m)
-                    {
-                        //if (_Strategy.AverageBasePrice(slice);
-                        _Strategy.MarketBuyNextTierOptions(slice);
-                    }
-                    */
+					_Statistics.Store();
 				}
 			}
 		}
@@ -113,15 +94,5 @@ namespace QuantConnect.Algorithm.CSharp
 		{
 			_lastSlice = slice;
 		}
-
-		/// <summary>
-		/// Order fill event handler. On an order fill update the resulting information is passed to this method.
-		/// </summary>
-		/// <param name="orderEvent">Order event details containing details of the evemts</param>
-		/// <remarks>This method can be called asynchronously and so should only be used by seasoned C# experts. Ensure you use proper locks on thread-unsafe objects</remarks>
-		public override void OnOrderEvent(OrderEvent orderEvent)
-        {
-            Log(orderEvent.ToString());
-        }
     }
 }

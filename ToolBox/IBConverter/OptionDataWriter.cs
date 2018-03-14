@@ -38,6 +38,8 @@ namespace QuantConnect.ToolBox.IBConverter
         private string _entryPath;
         private Symbol _symbol;
         private TickType _tickType;
+		private DateTime _lastTickTime;
+		private long _linesWritten;
         private Resolution _resolution;
         private Queue<IBaseData> _queue;
         private string _dataDirectory;
@@ -47,6 +49,11 @@ namespace QuantConnect.ToolBox.IBConverter
         {
             "con", "prn", "aux", "nul"
         };
+
+		public DateTime ReferenceDate
+		{
+			get { return _referenceDate; }
+		}
 
         /// <summary>
         /// Zip entry name for the option contract
@@ -165,7 +172,9 @@ namespace QuantConnect.ToolBox.IBConverter
                 return;
             }
 
-            _consolidator.Update(data);
+			_lastTickTime = data.EndTime;
+
+			_consolidator.Update(data);
         }
 
         /// <summary>
@@ -213,6 +222,11 @@ namespace QuantConnect.ToolBox.IBConverter
             return fileName;
         }
 
+		public long SaveToDisk()
+		{
+			return this.WriteToDisk(_lastTickTime, true);
+		}
+
         /// <summary>
         /// Write the processor queues to disk
         /// </summary>
@@ -220,45 +234,38 @@ namespace QuantConnect.ToolBox.IBConverter
         /// <param name="step">Period between flushes to disk</param>
         /// <param name="final">Final push to disk</param>
         /// <returns></returns>
-        private DateTime WriteToDisk(ManualResetEvent waitForFlush, DateTime peekTickTime, TimeSpan step, bool final = false)
+        private long WriteToDisk(DateTime peekTickTime, bool final = false)
         {
-            waitForFlush.WaitOne();
-            waitForFlush.Reset();
-            FlushBuffer(peekTickTime, final);
+			_linesWritten = 0;
 
-            Task.Run(() =>
+			FlushBuffer(peekTickTime, final);
+
+            try
             {
+                //var tickType = type;
+                string zip = string.Empty;
+
                 try
                 {
-                    //var tickType = type;
-                    string zip = string.Empty;
+                    //var symbol = this.Symbol;
+                    zip = this.ZipPath.Replace(".zip", string.Empty);
 
-                    try
-                    {
-                        //var symbol = this.Symbol;
-                        zip = this.ZipPath.Replace(".zip", string.Empty);
+                    var tempFileName = Path.Combine(zip, this.EntryPath);
 
-                        var tempFileName = Path.Combine(zip, this.EntryPath);
-
-                        Directory.CreateDirectory(zip);
-                        File.AppendAllText(tempFileName, FileBuilder());
-                    }
-                    catch (Exception err)
-                    {
-                        Log.Error("AlgoSeekOptionsConverter.WriteToDisk() returned error: " + err.Message + " zip name: " + zip);
-                    }
+                    Directory.CreateDirectory(zip);
+                    File.WriteAllText(tempFileName, FileBuilder());
                 }
                 catch (Exception err)
                 {
-                    Log.Error("AlgoSeekOptionsConverter.WriteToDisk() returned error: " + err.Message);
+                    Log.Error("AlgoSeekOptionsConverter.WriteToDisk() returned error: " + err.Message + " zip name: " + zip);
                 }
-                waitForFlush.Set();
-            });
+            }
+            catch (Exception err)
+            {
+                Log.Error("AlgoSeekOptionsConverter.WriteToDisk() returned error: " + err.Message);
+            }
 
-            //Pause while writing the final flush.
-            if (final) waitForFlush.WaitOne();
-
-            return peekTickTime.RoundDown(step);
+			return _linesWritten;
         }
 
         /// <summary>
@@ -270,9 +277,10 @@ namespace QuantConnect.ToolBox.IBConverter
             var sb = new StringBuilder();
             foreach (var data in this.Queue)
             {
-                sb.AppendLine(LeanData.GenerateLine(data, SecurityType.Option, this.Resolution));
-            }
+				sb.AppendLine(LeanData.GenerateLine(data, SecurityType.Option, this.Resolution));
+				_linesWritten++;
+			}
             return sb.ToString();
         }
-    }
+	}
 }

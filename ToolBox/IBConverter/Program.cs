@@ -73,6 +73,8 @@ namespace QuantConnect.ToolBox.IBConverter
 			{
 				Log.Error(err);
 			}
+
+			Console.ReadLine();
 		}
 
         private static void importEquity(string file)
@@ -150,8 +152,10 @@ namespace QuantConnect.ToolBox.IBConverter
                 }
 
                 var bars = new List<BaseData>();
+				OptionDataWriter writer = null;
+				long ticksProcessed = 0;
 
-                string line = reader.ReadLine();
+				string line = reader.ReadLine();
                 while (!String.IsNullOrEmpty(line))
                 {
                     var splits = line.Split(',');
@@ -164,32 +168,42 @@ namespace QuantConnect.ToolBox.IBConverter
                         decimal.Parse(splits[6]),
                         DateTime.Parse(splits[4])
                     );
-                    //var optionSymbol = new OptionContract(splits[0], underlyingSymbol);
+					var date = DateTime.Parse(splits[7]);
 
-                    var date = DateTime.Parse(splits[7]);
+					//TODO: make a smart cache of this
+					if (writer == null ||
+						writer.ReferenceDate.Day != date.Day ||
+						writer.Symbol.Value != optionSymbol.Value)
+					{
+						if (writer != null)
+						{
+							ticksProcessed += writer.SaveToDisk();
+							writer = null;
+						}
+						//yeah yeah this needs properly disposed of
+						writer = new OptionDataWriter(optionSymbol, date, TickType.Quote, Resolution.Minute, dataDirectory);
+					}
 
-                    var bar = new TradeBar(
-                        date,
-                        optionSymbol,
-                        decimal.Parse(splits[9]),
-                        decimal.Parse(splits[10]),
-                        decimal.Parse(splits[11]),
-                        decimal.Parse(splits[12]),
-                        0,
-                        timeSpan);
+					var tick = new Tick(
+						date,
+						optionSymbol,
+						decimal.Parse(splits[12]),
+						decimal.Parse(splits[11]),
+						decimal.Parse(splits[10])
+						);
 
-                    bars.Add(bar);
+					writer.Process(tick);
 
                     line = reader.ReadLine();
                 }
 
-                Log.Trace("Found {0} bars", bars.Count);
-
-                //var writer = new OptionDataWriter(o
-
-                //var writer = new LeanDataWriter(Resolution.Minute, symbolObject, dataDirectory);
-                //writer.Write(bars);
-            }
+				if (writer != null)
+				{
+					ticksProcessed += writer.SaveToDisk();
+					Log.Trace("Processed {0} ticks", ticksProcessed);
+					writer = null;
+				}
+			}
         }
 
 		/// <summary>
@@ -203,6 +217,7 @@ namespace QuantConnect.ToolBox.IBConverter
 			var file = splits[splits.Length - 1];
 			file = file.Trim('.', '/', '\\');
 			file = file.Replace("historical_data_", "");
+			file = file.Replace("historical_OPTIONS_data_", "");
 			var endIndex = file.IndexOf("_USD");
 			return file.Substring(0, endIndex);
 		}

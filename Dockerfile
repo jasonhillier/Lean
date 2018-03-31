@@ -3,9 +3,9 @@
 #	Cross platform deployment for multiple brokerages
 #
 
-FROM quantconnect/lean:foundation
+FROM mono:latest
 
-MAINTAINER QuantConnect <contact@quantconnect.com>
+MAINTAINER nobody
 
 RUN apt-get update && apt-get install -y nuget nano vim wget tmux net-tools
 

@@ -8,7 +8,7 @@ FROM quantconnect/lean:foundation
 MAINTAINER QuantConnect <contact@quantconnect.com>
 
 WORKDIR /root/lean
-ADD .
+ADD . .
 #################################
 # Option 1: Download from Master
 # RUN \

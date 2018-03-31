@@ -3,9 +3,9 @@
 #	Cross platform deployment for multiple brokerages
 #
 
-FROM mono:latest
+FROM quantconnect/lean:foundation
 
-MAINTAINER nobody
+MAINTAINER QuantConnect <contact@quantconnect.com>
 
 RUN apt-get update && apt-get install -y nuget nano vim wget tmux net-tools
 
@@ -19,7 +19,7 @@ ADD . .
 #	cd /root/Lean
  RUN \
 	#sed -i 's/4.5/4.0/' Algorithm.VisualBasic/QuantConnect.Algorithm.VisualBasic.vbproj && \
-	wget https://nuget.org/nuget.exe && \
+	nuget update && \
 	mono nuget.exe restore QuantConnect.Lean.sln -NonInteractive && \
 	xbuild /property:Configuration=Release && \
 	cd /root/Lean/Launcher/bin/Release/

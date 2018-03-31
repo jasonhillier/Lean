@@ -7,24 +7,25 @@ FROM quantconnect/lean:foundation
 
 MAINTAINER QuantConnect <contact@quantconnect.com>
 
+WORKDIR /root/lean
+ADD .
 #################################
 # Option 1: Download from Master
 # RUN \
 #	wget https://github.com/QuantConnect/Lean/archive/master.zip && \
 #	unzip master.zip /root/Lean && \
 #	cd /root/Lean
-# RUN \
-#	sed -i 's/4.5/4.0/' Algorithm.VisualBasic/QuantConnect.Algorithm.VisualBasic.vbproj && \
-#	wget https://nuget.org/nuget.exe && \
-#	mono nuget.exe restore QuantConnect.Lean.sln -NonInteractive && \
-#	xbuild /property:Configuration=Release && \
-#	cd /root/Lean/Launcher/bin/Release/
-#################################
+ RUN \
+	#sed -i 's/4.5/4.0/' Algorithm.VisualBasic/QuantConnect.Algorithm.VisualBasic.vbproj && \
+	wget https://nuget.org/nuget.exe && \
+	mono nuget.exe restore QuantConnect.Lean.sln -NonInteractive && \
+	xbuild /property:Configuration=Release && \
+	cd /root/Lean/Launcher/bin/Release/
 
 
 ################################
 # Option 2: Run Local Binaries:
-COPY ./Launcher/bin/Release /root/Lean/Launcher/bin/Release
+#COPY ./Launcher/bin/Release /root/Lean/Launcher/bin/Release
 #################################
 
 # Finally.

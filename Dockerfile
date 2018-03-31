@@ -17,9 +17,9 @@ ADD . .
 #	wget https://github.com/QuantConnect/Lean/archive/master.zip && \
 #	unzip master.zip /root/Lean && \
 #	cd /root/Lean
- RUN \
+RUN nuget update -self
+RUN \
 	#sed -i 's/4.5/4.0/' Algorithm.VisualBasic/QuantConnect.Algorithm.VisualBasic.vbproj && \
-	nuget update && \
 	mono nuget.exe restore QuantConnect.Lean.sln -NonInteractive && \
 	xbuild /property:Configuration=Release && \
 	cd /root/Lean/Launcher/bin/Release/

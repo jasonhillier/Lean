@@ -7,6 +7,8 @@ FROM quantconnect/lean:foundation
 
 MAINTAINER QuantConnect <contact@quantconnect.com>
 
+RUN apt-get update && apt-get install -y nuget nano vim wget tmux net-tools
+
 WORKDIR /root/lean
 ADD . .
 #################################

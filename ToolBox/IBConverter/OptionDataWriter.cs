@@ -25,6 +25,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
 using QuantConnect.Logging;
+using System.Diagnostics;
+using System.IO.Compression;
 
 namespace QuantConnect.ToolBox.IBConverter
 {
@@ -177,6 +179,12 @@ namespace QuantConnect.ToolBox.IBConverter
 			_consolidator.Update(data);
         }
 
+		public void Enqueue(QuoteBar quoteBar)
+		{
+			_lastTickTime = quoteBar.EndTime;
+			_queue.Enqueue(quoteBar);
+		}
+
         /// <summary>
         /// Write the in memory queues to the disk.
         /// </summary>
@@ -282,5 +290,56 @@ namespace QuantConnect.ToolBox.IBConverter
 			}
             return sb.ToString();
         }
+
+		/// <summary>
+		/// Compress the queue buffers directly to a zip file. Lightening fast as streaming ram-> compressed zip.
+		/// </summary>
+		public static void Package(string dataDir)
+		{
+			//var zipper = OS.IsWindows ? "C:/Program Files/7-Zip/7z.exe" : "7z";
+
+			Log.Trace("AlgoSeekOptionsConverter.Package(): Zipping all files ...");
+
+			var destination = Path.Combine(dataDir, "option");
+			//var dateMask = date.ToString(DateFormat.EightCharacter);
+
+			var files =
+				Directory.EnumerateFiles(destination, "*.csv", SearchOption.AllDirectories)
+				.GroupBy(x => Directory.GetParent(x).FullName);
+
+			//Zip each file massively in parallel.
+			Parallel.ForEach(files, file =>
+			{
+				try
+				{
+					var outputFileName = file.Key + ".zip";
+					// Create and open a new ZIP file
+					var filesToCompress = Directory.GetFiles(file.Key, "*.csv", SearchOption.AllDirectories);
+					using (var zip = ZipFile.Open(outputFileName, ZipArchiveMode.Create))
+					{
+						Log.Trace("AlgoSeekOptionsConverter.Package(): Zipping " + outputFileName);
+
+						foreach (var fileToCompress in filesToCompress)
+						{
+							// Add the entry for each file
+							zip.CreateEntryFromFile(fileToCompress, Path.GetFileName(fileToCompress), CompressionLevel.Optimal);
+						}
+					}
+
+					try
+					{
+						Directory.Delete(file.Key, true);
+					}
+					catch (Exception err)
+					{
+						Log.Error("AlgoSeekOptionsConverter.Package(): Directory.Delete returned error: " + err.Message);
+					}
+				}
+				catch (Exception err)
+				{
+					Log.Error("File: {0} Err: {1} Source {2} Stack {3}", file, err.Message, err.Source, err.StackTrace);
+				}
+			});
+		}
 	}
 }

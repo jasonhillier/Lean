@@ -109,11 +109,7 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 			// Load settings from config.json
 			var dataDirectory = Config.Get("data-directory", "../../../Data");
 
-			
-            var bars = new List<BaseData>();
-			OptionDataWriter writer = null;
-			long ticksProcessed = 0;
-
+			Dictionary<string, OptionDataWriter> writers = new Dictionary<string, OptionDataWriter>();
 			foreach (var quote in quotes)
 			{
                 var optionSymbol = Symbol.CreateOption(
@@ -125,20 +121,24 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
                     quote.date
                 );
 
-				//TODO: make a smart cache of this
-				if (writer == null ||
-					writer.ReferenceDate.Day != quote.date.Day ||
-					writer.Symbol.Value != optionSymbol.Value)
+				OptionDataWriter writer = null;
+				if (!writers.TryGetValue(optionSymbol.Value + "_" + quote.date.ToShortDateString(), out writer))
 				{
-					if (writer != null)
-					{
-						ticksProcessed += writer.SaveToDisk();
-						writer = null;
-					}
-					//yeah yeah this needs properly disposed of
 					writer = new OptionDataWriter(optionSymbol, quote.date, TickType.Quote, Resolution.Minute, dataDirectory);
+					writers[optionSymbol.Value + "_" + quote.date.ToShortDateString()] = writer;
 				}
 
+				var bar = new QuoteBar(
+					quote.date,
+					optionSymbol,
+					new Bar(quote.bid, quote.bid, quote.bid, quote.bid),
+					quote.bidSize,
+					new Bar(quote.ask, quote.ask, quote.ask, quote.ask),
+					quote.askSize
+				);
+
+				writer.Enqueue(bar);
+				/*
 				var tick = new Tick(
 					quote.date,
 					optionSymbol,
@@ -148,14 +148,18 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 					);
 
 				writer.Process(tick);
+				*/
             }
 
-			if (writer != null)
+			long ticksProcessed = 0;
+			foreach(var writer in writers)
 			{
-				ticksProcessed += writer.SaveToDisk();
-				Log.Trace("Processed {0} ticks", ticksProcessed);
-				writer = null;
+				ticksProcessed += writer.Value.SaveToDisk();
 			}
+
+			Log.Trace("Processed {0} ticks", ticksProcessed);
+			//zip all the files
+			OptionDataWriter.Package(dataDirectory);
         }
 
 

@@ -23,19 +23,22 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 		public double strike { get; set; }
 		public string right { get; set; }
 
-		public double bid { get; set; }
+		public decimal bid { get; set; }
 
 		public double maxAsk { get; set; }
 
+		public decimal bidSize { get; set; }
+		public decimal askSize { get; set; }
+
 		public double lowBid { get; set; }
-		public double ask { get; set; }
+		public decimal ask { get; set; }
 		public long volume { get; set; }
 
-		public double spread
+		public decimal spread
 		{
 			get { return Math.Round(ask - bid, 2); }
 		}
-		public double mid
+		public decimal mid
 		{
 			get { return Math.Round(bid + (spread / 2), 2); }
 		}

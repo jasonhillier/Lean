@@ -38,7 +38,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
         [TestFixtureTearDown]
         public void DisposeBrokerage()
         {
-            InteractiveBrokersGatewayRunner.Stop();
+            //InteractiveBrokersGatewayRunner.Stop();
         }
 
         protected override Symbol Symbol
@@ -71,6 +71,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
             if (!_manualGatewayControl && !_gatewayLaunched)
             {
                 _gatewayLaunched = true;
+				/*
                 InteractiveBrokersGatewayRunner.Start(Config.Get("ib-controller-dir"),
                     Config.Get("ib-tws-dir"),
                     Config.Get("ib-user-name"),
@@ -78,6 +79,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
                     Config.Get("ib-trading-mode"),
                     Config.GetBool("ib-use-tws")
                     );
+					*/
             }
             return new InteractiveBrokersBrokerage(new QCAlgorithm(), orderProvider, securityProvider);
         }

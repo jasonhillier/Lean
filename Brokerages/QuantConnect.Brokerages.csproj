@@ -276,7 +276,6 @@
     <Compile Include="InteractiveBrokers\InteractiveBrokersBrokerage.cs" />
     <Compile Include="InteractiveBrokers\InteractiveBrokersBrokerageFactory.cs" />
     <Compile Include="InteractiveBrokers\Client\InteractiveBrokersClient.cs" />
-    <Compile Include="InteractiveBrokers\InteractiveBrokersGatewayRunner.cs" />
     <Compile Include="InteractiveBrokers\InteractiveBrokersSymbolMapper.cs" />
     <Compile Include="ISymbolMapper.cs" />
     <Compile Include="Oanda\OandaRestApiBase.cs" />
@@ -538,12 +537,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="InteractiveBrokers\IB-symbol-map.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="InteractiveBrokers\run-ib-controller.bat">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="InteractiveBrokers\run-ib-controller.sh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Oanda\RestV1\LICENSE.md" />

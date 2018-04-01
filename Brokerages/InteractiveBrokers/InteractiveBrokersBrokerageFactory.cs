@@ -101,7 +101,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
             }
 
             // launch the IB gateway
-            InteractiveBrokersGatewayRunner.Start(ibControllerDirectory, twsDirectory, userId, password, tradingMode, useTws);
+            //InteractiveBrokersGatewayRunner.Start(ibControllerDirectory, twsDirectory, userId, password, tradingMode, useTws);
 
             var ib = new InteractiveBrokersBrokerage(algorithm, algorithm.Transactions, algorithm.Portfolio, account, host, port, agentDescription);
             Composer.Instance.AddPart<IDataQueueHandler>(ib);
@@ -116,7 +116,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// <filterpriority>2</filterpriority>
         public override void Dispose()
         {
-            InteractiveBrokersGatewayRunner.Stop();
+            //InteractiveBrokersGatewayRunner.Stop();
         }
     }
 }

@@ -30,7 +30,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
         [Test]
         public void GetsTickData()
         {
-            InteractiveBrokersGatewayRunner.StartFromConfiguration();
+            //InteractiveBrokersGatewayRunner.StartFromConfiguration();
             
             var ib = new InteractiveBrokersBrokerage(new QCAlgorithm(), new OrderProvider(), new SecurityProvider());
             ib.Connect();
@@ -47,7 +47,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
                 }
             }
 
-            InteractiveBrokersGatewayRunner.Stop();
+            //InteractiveBrokersGatewayRunner.Stop();
         }
     }
 }

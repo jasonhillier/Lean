@@ -1237,11 +1237,11 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
             Log.Trace("InteractiveBrokersBrokerage.ResetGatewayConnection(): Disconnecting...");
             Disconnect();
 
-            Log.Trace("InteractiveBrokersBrokerage.ResetGatewayConnection(): Stopping IB Gateway...");
-            InteractiveBrokersGatewayRunner.Stop();
+            //Log.Trace("InteractiveBrokersBrokerage.ResetGatewayConnection(): Stopping IB Gateway...");
+            //InteractiveBrokersGatewayRunner.Stop();
 
-            Log.Trace("InteractiveBrokersBrokerage.ResetGatewayConnection(): Restarting IB Gateway...");
-            InteractiveBrokersGatewayRunner.Restart();
+            //Log.Trace("InteractiveBrokersBrokerage.ResetGatewayConnection(): Restarting IB Gateway...");
+            //InteractiveBrokersGatewayRunner.Restart();
 
             Log.Trace("InteractiveBrokersBrokerage.ResetGatewayConnection(): Reconnecting...");
             Connect();
@@ -2808,6 +2808,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// </summary>
         public void CheckIbGateway()
         {
+			/*
             Log.Trace("InteractiveBrokersBrokerage.CheckIbGateway(): start");
             if (!InteractiveBrokersGatewayRunner.IsRunning())
             {
@@ -2815,6 +2816,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
                 _resetEventRestartGateway.Set();
             }
             Log.Trace("InteractiveBrokersBrokerage.CheckIbGateway(): end");
+			*/
         }
 
         private readonly ConcurrentDictionary<Symbol, int> _subscribedSymbols = new ConcurrentDictionary<Symbol, int>();

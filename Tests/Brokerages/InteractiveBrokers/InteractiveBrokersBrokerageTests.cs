@@ -42,6 +42,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
         [SetUp]
         public void InitializeBrokerage()
         {
+			/*
             InteractiveBrokersGatewayRunner.Start(Config.Get("ib-controller-dir"),
                 Config.Get("ib-tws-dir"),
                 Config.Get("ib-user-name"),
@@ -49,7 +50,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
                 Config.Get("ib-trading-mode"),
                 Config.GetBool("ib-use-tws")
                 );
-
+				*/
             // grabs account info from configuration
             var securityProvider = new SecurityProvider();
             securityProvider[Symbols.USDJPY] = new Security(SecurityExchangeHours.AlwaysOpen(TimeZones.NewYork),
@@ -120,7 +121,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
             }
             finally
             {
-                InteractiveBrokersGatewayRunner.Stop();
+                //InteractiveBrokersGatewayRunner.Stop();
             }
         }
 
@@ -151,7 +152,7 @@ namespace QuantConnect.Tests.Brokerages.InteractiveBrokers
             Assert.IsTrue(ib.IsConnected);
 
             ib.ResetGatewayConnection();
-            Assert.IsTrue(InteractiveBrokersGatewayRunner.IsRunning());
+            //Assert.IsTrue(InteractiveBrokersGatewayRunner.IsRunning());
             Assert.IsTrue(ib.IsConnected);
 
             ib.CheckIbGateway();

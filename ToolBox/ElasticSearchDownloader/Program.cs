@@ -67,7 +67,7 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
         private static void importEquity(IReadOnlyCollection<StockOptionQuote> quotes)
         {
 			var symbol = quotes.First().baseSymbol;
-            TimeSpan timeSpan = new TimeSpan(0, 15, 0);
+            //TimeSpan timeSpan = new TimeSpan(0, 15, 0);
             var symbolObject = Symbol.Create(symbol, SecurityType.Equity, Market.USA);
 
 			Log.Trace("Processing equity {0}...", symbol);
@@ -77,19 +77,25 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 
 			var bars = new List<BaseData>();
 
+			DateTime frontierDate = DateTime.MinValue;
             foreach(var quote in quotes)
             {
-                var bar = new TradeBar(
-                    quote.date,
-                    symbolObject,
-					quote.basePrice,
-					quote.basePrice,
-					quote.basePrice,
-					quote.basePrice,
-					0,
-                    timeSpan);
+				if (quote.date > frontierDate)
+				{
+					frontierDate = quote.date;
 
-                bars.Add(bar);
+					var bar = new TradeBar(
+						quote.date,
+						symbolObject,
+						quote.basePrice,
+						quote.basePrice,
+						quote.basePrice,
+						quote.basePrice,
+						0
+					);
+
+					bars.Add(bar);
+				}
             }
 
 			Log.Trace("Found {0} bars", bars.Count);

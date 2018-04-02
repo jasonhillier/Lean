@@ -124,7 +124,7 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
                     OptionStyle.American,
                     (quote.right == "P" ? OptionRight.Put : OptionRight.Call),
                     (decimal)quote.strike,
-                    quote.date
+                    quote.expiry
                 );
 
 				OptionDataWriter writer = null;

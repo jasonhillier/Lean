@@ -34,7 +34,15 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         {
             if (!File.Exists(key))
             {
-                Log.Error("DefaultDataProvider.Fetch(): The specified file was not found: {0}", key);
+				if (key.Contains("option") && (key.Contains("openinterest") || key.Contains("trade")))
+				{
+					//these files are not required, don't want to spam errors
+					Log.Debug("DefaultDataProvider.Fetch(): The specified file was not found: " + key);
+				}
+				else
+				{
+					Log.Error("DefaultDataProvider.Fetch(): The specified file was not found: {0}", key);
+				}
                 return null;
             }
 

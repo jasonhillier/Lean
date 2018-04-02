@@ -38,7 +38,7 @@ namespace QuantConnect.Algorithm.CSharp
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
         private const string UnderlyingTicker = "VXX";
-        private const int _ROC_THRESHOLD = 10;
+        private const int _ROC_THRESHOLD = 7;
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
         public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
@@ -52,12 +52,14 @@ namespace QuantConnect.Algorithm.CSharp
 			//SetEndDate(2014, 06, 06);
 
 			//
-			SetStartDate(2018, 03, 01);
-			SetEndDate(2018, 03, 01);
+			SetStartDate(2015, 01, 02);
+			SetEndDate(2015, 10, 01);
 			//SetStartDate(2015, 01, 01);
 			//SetStartDate(2018, 02, 15);
 			//SetEndDate(2018, 03, 09);
 			SetCash(100000);
+
+			//this.
 
             var equity = AddEquity(UnderlyingTicker, RESOLUTION);
             var option = AddOption(UnderlyingTicker, RESOLUTION);
@@ -72,36 +74,49 @@ namespace QuantConnect.Algorithm.CSharp
 			SubscriptionManager.AddConsolidator(Underlying, consolidator);
 
 			// init strategy
-			_Strategy = new OptionStrategy(this, option);
+			_Strategy = new OptionStrategy(this, option, 10, 1, 10);
         }
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
 		{
-			if (IsMarketOpen(OptionSymbol))
+			if (IsMarketOpen(OptionSymbol) && _lastSlice != null)
 			{
-				//a
-				_Strategy.MarketBuyNextTierOptions(_lastSlice);
+				/*
+				if (this.Portfolio.TotalHoldingsValue == 0 &&
+					_rocp.Current.Value >= _ROC_THRESHOLD)
+				{
+					this.MarketOrder(Underlying, -100);
+					_quantity = -100;
+				}
+				else
+				{
+					if (this.Portfolio.TotalUnrealizedProfit > (this.Portfolio.TotalAbsoluteHoldingsCost * 0.05m))
+					{
+						this.Liquidate();
+					}
+					else if (this.Portfolio.TotalUnrealizedProfit < (this.Portfolio.TotalAbsoluteHoldingsCost * -0.05m))
+					{
+						_quantity *= 2;
+						this.MarketOrder(Underlying, _quantity);
+					}
+				}
+				*/
 
-				if (_rocp.Current.Value >= _ROC_THRESHOLD)
+				if (!_Strategy.IsInvested() && _rocp.Current.Value >= _ROC_THRESHOLD)
 				{
 					Console.WriteLine("<{0}>\tROCP= {1:00}", e.Time.ToString(), _rocp.Current.Value);
 
-					if (!_Strategy.IsInvested())
-					{
-						//e.
-						_Strategy.MarketBuyNextTierOptions(_lastSlice);
-					}
-					/*
-                    if (_Strategy.AggregateProfitPercentage(slice) > .1m)
-                        _Strategy.CloseAll();
-                    else if (!_Strategy.IsInvested() ||
-                             _Strategy.AggregateProfitPercentage(slice) < -.5m)
-                    {
-                        //if (_Strategy.AverageBasePrice(slice);
-                        _Strategy.MarketBuyNextTierOptions(slice);
-                    }
-                    */
+					_Strategy.MarketBuyNextTierOptions(_lastSlice);
 				}
+				
+                if (_Strategy.AggregateProfitPercentage(_lastSlice) > .1m)
+                    _Strategy.CloseAll();
+                else if (_Strategy.AggregateProfitPercentage(_lastSlice) < -.1m)
+                {
+                    //if (_Strategy.AverageBasePrice(slice);
+                    _Strategy.MarketBuyNextTierOptions(_lastSlice);
+                }
+				
 			}
 		}
 
@@ -112,6 +127,8 @@ namespace QuantConnect.Algorithm.CSharp
 		public override void OnData(Slice slice)
 		{
 			_lastSlice = slice;
+
+			//Console.WriteLine("{0} Options: {1}", _lastSlice[Underlying].EndTime, _lastSlice.OptionChains.Count);
 		}
 
 		/// <summary>

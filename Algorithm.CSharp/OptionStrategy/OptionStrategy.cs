@@ -16,20 +16,23 @@ namespace QuantConnect.Algorithm.CSharp
         protected Option _Option;
         protected Symbol _OptionSymbol;
         protected int _PositionSizeStart;
+		protected int _ItmDepth;
 
-        public OptionStrategy(QCAlgorithm Algo, Option Option, int MaxTiers = 3, int PositionSizeStart=1)
+        public OptionStrategy(QCAlgorithm Algo, Option Option, int MaxTiers = 3, int PositionSizeStart=1, int itmDepth = 3)
         {
             _Algo = Algo;
             _MaxTiers = MaxTiers;
             _Option = Option;
             _OptionSymbol = Option.Symbol;
             _PositionSizeStart = PositionSizeStart;
+			_ItmDepth = itmDepth;
 
-            Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
+
+			Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
 
             // set our strike/expiry filter for this option chain
-            _Option.SetFilter(u => u.Strikes(-2, +2)
-                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(31)));
+            _Option.SetFilter(u => u.Strikes(-100, +100)
+                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(180)));
         }
 
         protected void _Log(string Text, params object[] args)
@@ -39,10 +42,10 @@ namespace QuantConnect.Algorithm.CSharp
 
         public bool MarketBuyOptions(List<OptionContract> Contracts)
         {
-            if (Contracts == null)
+			if (Contracts == null || Contracts.Count == 0)
                 return false;
-            
-            Contracts.ForEach(contract=>
+
+			Contracts.ForEach(contract=>
             {
                 //seems wrong
                 DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
@@ -54,10 +57,10 @@ namespace QuantConnect.Algorithm.CSharp
                      _Option.Underlying.Symbol,
                      _Option.Underlying.Price
                     );
-                _Algo.MarketOrder(contract.Symbol, _PositionSizeStart); //*this.InvestedTiers());
+                _Algo.MarketOrder(contract.Symbol, _PositionSizeStart * this.InvestedTiers()+1);
             });
 
-            return true;
+			return true;
         }
 
         public bool MarketBuyNextTierOptions(Slice slice)
@@ -88,20 +91,24 @@ namespace QuantConnect.Algorithm.CSharp
 
         protected virtual int _GetNextTierOptions(Slice slice, List<OptionContract> Contracts, OptionChain Chain)
         {
-            // we find at the money (ATM) put contract with farthest expiration
-            var atmContract = Chain
-                .OrderByDescending(x => x.Expiry)
-                .ThenBy(x => Math.Abs(Chain.Underlying.Price - x.Strike))
-                .ThenByDescending(x => x.Right)
-                .FirstOrDefault();
+			// we find nearby ITM put contract with closest expiration (at least 10 days away)
+			var itmContracts = Chain
+				.Where(x => x.Right == OptionRight.Put)
+				.Where(x => (x.Strike - Chain.Underlying.Price) > 0)
+				.Where(x=>(x.Expiry - x.Time).TotalDays >= 10)
+				.OrderBy(x => x.Expiry)
+				.ThenBy(x => x.Strike - Chain.Underlying.Price).ToList();
 
-            if (atmContract != null)
+			var contract = itmContracts.Take(_ItmDepth).LastOrDefault();
+
+			if (contract != null)
             {
-                Contracts.Add(atmContract);
+                Contracts.Add(contract);
                 return 1;
             }
             else
             {
+				Console.WriteLine("NO VALID CONTRACTS TO BUY!!");
                 return 0;
             }
         }
@@ -113,6 +120,7 @@ namespace QuantConnect.Algorithm.CSharp
 			if (chain == null)
 			{
 				Console.WriteLine("<{0}> No option chain here!", slice.Time.ToString());
+				return null;
 			}
 
             return chain;
@@ -120,10 +128,9 @@ namespace QuantConnect.Algorithm.CSharp
 
         public List<SecurityHolding> GetPositions()
         {
-            var portfolio = _Algo.Portfolio.Where((s) =>
+            var portfolio = _Algo.Portfolio.Securities.Where((s) =>
             {
-                return (s.Key.SecurityType == SecurityType.Option &&
-                        s.Key.Underlying.Value == _Option.Symbol.Value);
+				return (s.Value.HoldStock);
             });
 
             List<SecurityHolding> holdings = new List<SecurityHolding>();
@@ -131,7 +138,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             portfolio.All((k) =>
             {
-                holdings.Add(k.Value);
+				holdings.Add(k.Value.Holdings);
                 return true;
             });
 
@@ -141,19 +148,19 @@ namespace QuantConnect.Algorithm.CSharp
         public decimal AggregateProfitPercentage(Slice slice)
         {
             var holdings = GetPositions();
+			if (holdings.Count == 0)
+				return 0;
 
-            decimal profit = 0;
-            decimal capital = 1;
+			decimal profitAggPercent = 0;
 
             holdings.All((h) =>
             {
-                profit += h.NetProfit;
-                capital += h.HoldingsCost;
+				profitAggPercent += h.UnrealizedProfitPercent;
                 return true;
             });
 
-            return profit / capital;
-        }
+			return profitAggPercent / holdings.Count;
+		}
 
         public decimal AggregateProfit(Slice slice)
         {
@@ -163,7 +170,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             holdings.All((h) =>
             {
-                profit += h.NetProfit;
+                profit += h.UnrealizedProfit;
                 return true;
             });
 
@@ -172,8 +179,13 @@ namespace QuantConnect.Algorithm.CSharp
 
         public bool CloseAll()
         {
-            Console.WriteLine("CLOSE ALL!!");
-            return true;
+            Console.WriteLine("========= CLOSE ALL!! ==============");
+			var holdings = GetPositions();
+			foreach(var sec in holdings)
+			{
+				_Algo.MarketOrder(sec.Symbol, -sec.Quantity);
+			}
+			return true;
         }
 
         public bool IsInvested()
@@ -188,9 +200,15 @@ namespace QuantConnect.Algorithm.CSharp
 
         public virtual int InvestedTiers()
         {
-            //_Algo.Portfolio.
-            //TODO: we can compute this by finding how many strikes we have purchased long
-            return GetPositions().Count;
-        }
+			int totalHoldings = 0;
+
+			var positions = GetPositions();
+			foreach(var pos in positions)
+			{
+				totalHoldings += (int)pos.Quantity;
+			}
+
+			return totalHoldings / _PositionSizeStart;
+		}
     }
 }

@@ -17,8 +17,9 @@ namespace QuantConnect.Algorithm.CSharp
         protected Symbol _OptionSymbol;
         protected int _PositionSizeStart;
 		protected int _ItmDepth;
+		protected int _MinDaysRemaining;
 
-        public OptionStrategy(QCAlgorithm Algo, Option Option, int MaxTiers = 3, int PositionSizeStart=1, int itmDepth = 3)
+		public OptionStrategy(QCAlgorithm Algo, Option Option, int MaxTiers = 3, int PositionSizeStart=1, int itmDepth = 3, int minDaysRemaining = 15)
         {
             _Algo = Algo;
             _MaxTiers = MaxTiers;
@@ -26,7 +27,7 @@ namespace QuantConnect.Algorithm.CSharp
             _OptionSymbol = Option.Symbol;
             _PositionSizeStart = PositionSizeStart;
 			_ItmDepth = itmDepth;
-
+			_MinDaysRemaining = minDaysRemaining;
 
 			Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
 
@@ -92,10 +93,11 @@ namespace QuantConnect.Algorithm.CSharp
         protected virtual int _GetNextTierOptions(Slice slice, List<OptionContract> Contracts, OptionChain Chain)
         {
 			// we find nearby ITM put contract with closest expiration (at least 10 days away)
+			//TODO: make 'tier' definition customizable
 			var itmContracts = Chain
 				.Where(x => x.Right == OptionRight.Put)
 				.Where(x => (x.Strike - Chain.Underlying.Price) > 0)
-				.Where(x=>(x.Expiry - x.Time).TotalDays >= 10)
+				.Where(x=>(x.Expiry - x.Time).TotalDays >= _MinDaysRemaining)
 				.OrderBy(x => x.Expiry)
 				.ThenBy(x => x.Strike - Chain.Underlying.Price).ToList();
 
@@ -126,23 +128,43 @@ namespace QuantConnect.Algorithm.CSharp
             return chain;
         }
 
-        public List<SecurityHolding> GetPositions()
+		public bool CloseAnyBeforeExpiry(Slice slice)
+		{
+			var options = GetPositions();
+
+			options.All((p) =>
+			{
+				if ((p.Expiry - slice.Time).TotalDays < 1)
+				{
+					Console.WriteLine("=== CLOSING BEFORE EXPIRY ===");
+					ClosePosition(p);
+				}
+				return true;
+			});
+
+			return true;
+		}
+
+		public List<Option> GetOTMPositions()
+		{
+			var positions = GetPositions();
+
+			return positions.Where((p) =>
+			{
+				return p.GetIntrinsicValue(p.Underlying.Price) < 0;
+			}).ToList();
+		}
+
+        public List<Option> GetPositions()
         {
-            var portfolio = _Algo.Portfolio.Securities.Where((s) =>
-            {
-				return (s.Value.HoldStock);
-            });
-
-            List<SecurityHolding> holdings = new List<SecurityHolding>();
-
-
-            portfolio.All((k) =>
-            {
-				holdings.Add(k.Value.Holdings);
-                return true;
-            });
-
-            return holdings;
+			return _Algo.Portfolio.Securities.Where((s) =>
+			{
+				return (s.Value is Option &&
+						s.Value.HoldStock);
+			})
+			.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+			.Values.Cast<Option>()
+			.ToList();
         }
 
         public decimal AggregateProfitPercentage(Slice slice)
@@ -155,7 +177,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             holdings.All((h) =>
             {
-				profitAggPercent += h.UnrealizedProfitPercent;
+				profitAggPercent += h.Holdings.UnrealizedProfitPercent;
                 return true;
             });
 
@@ -170,23 +192,30 @@ namespace QuantConnect.Algorithm.CSharp
 
             holdings.All((h) =>
             {
-                profit += h.UnrealizedProfit;
+                profit += h.Holdings.UnrealizedProfit;
                 return true;
             });
 
             return profit;
         }
 
-        public bool CloseAll()
+		public bool CloseAll() { return ClosePositions(); }
+        public bool ClosePositions(List<Option> positions = null)
         {
-            Console.WriteLine("========= CLOSE ALL!! ==============");
-			var holdings = GetPositions();
-			foreach(var sec in holdings)
+            Console.WriteLine("========= CLOSE POSITIONS ==============");
+			if (positions == null)
+				positions = GetPositions();
+			foreach(var optionPos in positions)
 			{
-				_Algo.MarketOrder(sec.Symbol, -sec.Quantity);
+				ClosePosition(optionPos);
 			}
 			return true;
         }
+
+		public OrderTicket ClosePosition(Option position)
+		{
+			return _Algo.MarketOrder(position.Holdings.Symbol, -position.Holdings.Quantity);
+		}
 
         public bool IsInvested()
         {
@@ -195,7 +224,15 @@ namespace QuantConnect.Algorithm.CSharp
 
         public bool IsMaxInvested()
         {
-            return (this.InvestedTiers() >= _MaxTiers);
+            if (this.InvestedTiers() >= _MaxTiers)
+			{
+				Console.WriteLine("!!! MAX TIER REACHED !!!");
+				return true;
+			}
+			else
+			{
+				return false;
+			}
         }
 
         public virtual int InvestedTiers()
@@ -205,7 +242,7 @@ namespace QuantConnect.Algorithm.CSharp
 			var positions = GetPositions();
 			foreach(var pos in positions)
 			{
-				totalHoldings += (int)pos.Quantity;
+				totalHoldings += (int)pos.Holdings.Quantity;
 			}
 
 			return totalHoldings / _PositionSizeStart;

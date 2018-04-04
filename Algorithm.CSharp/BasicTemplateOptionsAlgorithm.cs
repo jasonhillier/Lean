@@ -40,7 +40,7 @@ namespace QuantConnect.Algorithm.CSharp
         private const string UnderlyingTicker = "VXX";
         private const int _ROC_THRESHOLD = 7;
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
-        public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
+		//public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
         private RateOfChangePercent _rocp;
 		private Slice _lastSlice;
@@ -52,17 +52,17 @@ namespace QuantConnect.Algorithm.CSharp
 			//SetEndDate(2014, 06, 06);
 
 			//
-			SetStartDate(2015, 01, 02);
-			SetEndDate(2015, 10, 01);
+			SetStartDate(2016, 01, 01);
+			SetEndDate(2017, 12, 31);
 			//SetStartDate(2015, 01, 01);
 			//SetStartDate(2018, 02, 15);
 			//SetEndDate(2018, 03, 09);
-			SetCash(100000);
+			SetCash(20000);
 
 			//this.
 
             var equity = AddEquity(UnderlyingTicker, RESOLUTION);
-            var option = AddOption(UnderlyingTicker, RESOLUTION);
+			var option = AddOption(UnderlyingTicker, RESOLUTION);
 
             // use the underlying equity as the benchmark
             SetBenchmark(equity.Symbol);
@@ -74,12 +74,12 @@ namespace QuantConnect.Algorithm.CSharp
 			SubscriptionManager.AddConsolidator(Underlying, consolidator);
 
 			// init strategy
-			_Strategy = new OptionStrategy(this, option, 10, 1, 10);
+			_Strategy = new OptionStrategy(this, option, 5, 5, 4);
         }
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
 		{
-			if (IsMarketOpen(OptionSymbol) && _lastSlice != null)
+			if (IsMarketOpen(Underlying) && _lastSlice != null)
 			{
 				/*
 				if (this.Portfolio.TotalHoldingsValue == 0 &&
@@ -108,15 +108,29 @@ namespace QuantConnect.Algorithm.CSharp
 
 					_Strategy.MarketBuyNextTierOptions(_lastSlice);
 				}
+
+				if (_Strategy.AggregateProfitPercentage(_lastSlice) > .2m)
+				{
+					_Strategy.CloseAll();
+				}
+				else
+				{
+					var otmOptions = _Strategy.GetOTMPositions();
+					if (otmOptions.Count > 0)
+					{
+						_Strategy.ClosePosition(otmOptions[0]);
+						_Strategy.MarketBuyNextTierOptions(_lastSlice);
+					}
+				}
+
+				_Strategy.CloseAnyBeforeExpiry(_lastSlice);
 				
-                if (_Strategy.AggregateProfitPercentage(_lastSlice) > .1m)
-                    _Strategy.CloseAll();
-                else if (_Strategy.AggregateProfitPercentage(_lastSlice) < -.1m)
-                {
-                    //if (_Strategy.AverageBasePrice(slice);
-                    _Strategy.MarketBuyNextTierOptions(_lastSlice);
-                }
-				
+				/*else if (_Strategy.AggregateProfitPercentage(_lastSlice) < -.1m)
+				{
+					//if (_Strategy.AverageBasePrice(slice);
+					_Strategy.MarketBuyNextTierOptions(_lastSlice);
+				}
+				*/
 			}
 		}
 

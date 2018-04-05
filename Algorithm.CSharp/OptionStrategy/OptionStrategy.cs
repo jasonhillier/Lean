@@ -18,6 +18,7 @@ namespace QuantConnect.Algorithm.CSharp
         protected int _PositionSizeStart;
 		protected int _ItmDepth;
 		protected int _MinDaysRemaining;
+		protected Stats _Stats;
 
 		public OptionStrategy(QCAlgorithm Algo, Option Option, int MaxTiers = 3, int PositionSizeStart=1, int itmDepth = 3, int minDaysRemaining = 15)
         {
@@ -32,8 +33,8 @@ namespace QuantConnect.Algorithm.CSharp
 			Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
 
             // set our strike/expiry filter for this option chain
-            _Option.SetFilter(u => u.Strikes(-100, +100)
-                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(180)));
+            _Option.SetFilter(u => u.Strikes(-20, +30)
+                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(90)));
         }
 
         protected void _Log(string Text, params object[] args)
@@ -41,15 +42,18 @@ namespace QuantConnect.Algorithm.CSharp
             _Algo.Debug(String.Format(Text, args));
         }
 
-        public bool MarketBuyOptions(List<OptionContract> Contracts)
+        public bool MarketBuyOptions(List<OptionContract> Contracts, int OverrideQuantity = 0)
         {
 			if (Contracts == null || Contracts.Count == 0)
                 return false;
 
 			Contracts.ForEach(contract=>
             {
-                //seems wrong
-                DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
+				int quantity = OverrideQuantity;
+				if (quantity == 0)
+					quantity = _PositionSizeStart * this.InvestedTiers() + 1;
+				//seems wrong
+				DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
                 _Log("{0} Purchase {1} {2} @ {3} ({4} {5})",
                      lastBarEndTime.ToString(),
                      contract.Right.ToString().ToUpper(),
@@ -58,7 +62,7 @@ namespace QuantConnect.Algorithm.CSharp
                      _Option.Underlying.Symbol,
                      _Option.Underlying.Price
                     );
-                _Algo.MarketOrder(contract.Symbol, _PositionSizeStart * this.InvestedTiers()+1);
+                _Algo.MarketOrder(contract.Symbol, quantity);
             });
 
 			return true;
@@ -128,21 +132,43 @@ namespace QuantConnect.Algorithm.CSharp
             return chain;
         }
 
-		public bool CloseAnyBeforeExpiry(Slice slice)
+		public bool RolloverBeforeExpiry(Slice slice)
+		{
+			int contractsClosedCount = CloseAnyBeforeExpiry(slice);
+
+			if (contractsClosedCount > 0)
+			{
+				_Stats.RolloverCounter++;
+
+				var nextOptions = GetNextTierOptions(slice);
+				if (nextOptions != null && nextOptions.Count > 0)
+				{
+					_Stats.RolloverContracts += contractsClosedCount;
+					return MarketBuyOptions(nextOptions, contractsClosedCount);
+				}
+			}
+
+			return false;
+		}
+
+		public int CloseAnyBeforeExpiry(Slice slice)
 		{
 			var options = GetPositions();
+			int contractsClosedCount = 0;
 
 			options.All((p) =>
 			{
 				if ((p.Expiry - slice.Time).TotalDays < 1)
 				{
 					Console.WriteLine("=== CLOSING BEFORE EXPIRY ===");
-					ClosePosition(p);
+					contractsClosedCount += Math.Abs((int)ClosePosition(p).Quantity);
 				}
 				return true;
 			});
 
-			return true;
+			if (contractsClosedCount > 0) _Stats.ExpiryCloseCounter++;
+
+			return contractsClosedCount;
 		}
 
 		public List<Option> GetOTMPositions()
@@ -199,17 +225,22 @@ namespace QuantConnect.Algorithm.CSharp
             return profit;
         }
 
-		public bool CloseAll() { return ClosePositions(); }
-        public bool ClosePositions(List<Option> positions = null)
+		public List<OrderTicket> CloseAll() { return ClosePositions(); }
+        public List<OrderTicket> ClosePositions(List<Option> positions = null)
         {
+			List<OrderTicket> orders = new List<OrderTicket>();
             Console.WriteLine("========= CLOSE POSITIONS ==============");
 			if (positions == null)
 				positions = GetPositions();
+
 			foreach(var optionPos in positions)
 			{
-				ClosePosition(optionPos);
+				orders.Add(
+					ClosePosition(optionPos)
+					);
 			}
-			return true;
+
+			return orders;
         }
 
 		public OrderTicket ClosePosition(Option position)
@@ -227,6 +258,7 @@ namespace QuantConnect.Algorithm.CSharp
             if (this.InvestedTiers() >= _MaxTiers)
 			{
 				Console.WriteLine("!!! MAX TIER REACHED !!!");
+				_Stats.MaxTierCounter++;
 				return true;
 			}
 			else
@@ -245,7 +277,28 @@ namespace QuantConnect.Algorithm.CSharp
 				totalHoldings += (int)pos.Holdings.Quantity;
 			}
 
-			return totalHoldings / _PositionSizeStart;
+			int tier = totalHoldings / _PositionSizeStart;
+
+			if (tier > _Stats.HighestTier) _Stats.HighestTier = tier;
+			return tier;
+		}
+
+		public void PrintStats()
+		{
+			_Algo.Log("MaxTiers Counter:\t" + _Stats.MaxTierCounter);
+			_Algo.Log("HighestTier:\t\t" + _Stats.HighestTier);
+			_Algo.Log("ExpiryClose Counter:\t" + _Stats.ExpiryCloseCounter);
+			_Algo.Log("Rollover Counter:\t" + _Stats.RolloverCounter);
+			_Algo.Log("Rollover Contracts:\t" + _Stats.RolloverContracts);
+		}
+
+		public struct Stats
+		{
+			public int MaxTierCounter;
+			public int HighestTier;
+			public int RolloverCounter;
+			public int RolloverContracts;
+			public int ExpiryCloseCounter;
 		}
     }
 }

@@ -38,7 +38,7 @@ namespace QuantConnect.Algorithm.CSharp
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
         private const string UnderlyingTicker = "VXX";
-        private const int _ROC_THRESHOLD = 7;
+        private const int _ROC_THRESHOLD = 5;
         public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
 		//public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
@@ -123,7 +123,7 @@ namespace QuantConnect.Algorithm.CSharp
 					}
 				}
 
-				_Strategy.CloseAnyBeforeExpiry(_lastSlice);
+				_Strategy.RolloverBeforeExpiry(_lastSlice);
 				
 				/*else if (_Strategy.AggregateProfitPercentage(_lastSlice) < -.1m)
 				{
@@ -143,6 +143,15 @@ namespace QuantConnect.Algorithm.CSharp
 			_lastSlice = slice;
 
 			//Console.WriteLine("{0} Options: {1}", _lastSlice[Underlying].EndTime, _lastSlice.OptionChains.Count);
+		}
+
+		public override void OnEndOfAlgorithm()
+		{
+			//Print stats
+			Log("==== FINAL OPTION STRATEGY STATS ====");
+			_Strategy.PrintStats();
+
+			base.OnEndOfAlgorithm();
 		}
 
 		/// <summary>

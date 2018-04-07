@@ -322,7 +322,7 @@ namespace QuantConnect.ToolBox.IBConverter
 						foreach (var fileToCompress in filesToCompress)
 						{
 							// Add the entry for each file
-							zip.CreateEntryFromFile(fileToCompress, Path.GetFileName(fileToCompress), CompressionLevel.Fastest);
+							zip.CreateEntryFromFile(fileToCompress, Path.GetFileName(fileToCompress), CompressionLevel.NoCompression);
 						}
 					}
 

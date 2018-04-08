@@ -15,6 +15,9 @@ namespace QuantConnect.Lean.Engine.Results
 	{
 		private const string ES_INDEX = "backtests";
 
+		/// <summary>
+		/// Default initializer for
+		/// </summary>
 		public ElasticSearchResultHandler() :
 			base()
 		{

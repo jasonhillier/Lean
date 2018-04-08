@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Net;
+using QuantConnect.Configuration;
 
 namespace QuantConnect.Lean.Engine.Results
 {
@@ -13,7 +14,7 @@ namespace QuantConnect.Lean.Engine.Results
 	/// </summary>
 	public class ElasticSearchResultHandler : BacktestingResultHandler, IResultHandler
 	{
-		private const string ES_INDEX = "backtests";
+		private string ES_INDEX;
 
 		/// <summary>
 		/// Default initializer for
@@ -21,6 +22,7 @@ namespace QuantConnect.Lean.Engine.Results
 		public ElasticSearchResultHandler() :
 			base()
 		{
+			ES_INDEX = Config.Get("es-index", "backtests");
 		}
 
 		public override void SaveResults(string name, Result pResult)
@@ -38,11 +40,11 @@ namespace QuantConnect.Lean.Engine.Results
 
 			Console.WriteLine("Storing " + _PackagedData.Length + " bytes...");
 
-			String username = "data";
-			String password = "data*123";
+			String username = Config.Get("es-user");
+			String password = Config.Get("es=pwd");
 			String encoded = System.Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
 
-			HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://es.hillier.us/_bulk");
+			HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Config.Get("es-server") + "/_bulk");
 			request.Headers.Add("Authorization", "Basic " + encoded);
 			request.Method = "PUT";
 			request.AutomaticDecompression = DecompressionMethods.GZip;

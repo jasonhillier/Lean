@@ -39,6 +39,7 @@ namespace QuantConnect.Algorithm.CSharp
 		private const int MINUTE_RATE = 15;
 		private string UnderlyingTicker;
         private const int _ROC_THRESHOLD = 5;
+		private decimal _TargetProfit = .2m;
 		public Symbol Underlying;
 		//public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
@@ -55,6 +56,8 @@ namespace QuantConnect.Algorithm.CSharp
 
 			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
 			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
+
+			decimal.TryParse(GetParameter("target-profit"), out _TargetProfit);
 
 			//
 			SetStartDate(startDate);
@@ -114,7 +117,7 @@ namespace QuantConnect.Algorithm.CSharp
 					_Strategy.MarketBuyNextTierOptions(_lastSlice);
 				}
 
-				if (_Strategy.AggregateProfitPercentage(_lastSlice) > .2m)
+				if (_Strategy.AggregateProfitPercentage(_lastSlice) > _TargetProfit)
 				{
 					_Strategy.CloseAll();
 				}

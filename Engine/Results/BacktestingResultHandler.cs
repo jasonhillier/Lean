@@ -45,7 +45,7 @@ namespace QuantConnect.Lean.Engine.Results
         private static readonly TextWriter StandardError = Console.Error;
 
         private bool _exitTriggered = false;
-        private BacktestNodePacket _job;
+        protected BacktestNodePacket _job;
         private int _jobDays = 0;
         private string _compileId = "";
         private string _backtestId = "";

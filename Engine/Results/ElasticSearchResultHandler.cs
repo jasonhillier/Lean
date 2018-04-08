@@ -8,9 +8,17 @@ using System.Net;
 
 namespace QuantConnect.Lean.Engine.Results
 {
-	public class ElasticSearchResultHandler : BacktestingResultHandler
+	/// <summary>
+	/// ElasticSearchResultHandler result handler passes messages back from the Lean to the User.
+	/// </summary>
+	public class ElasticSearchResultHandler : BacktestingResultHandler, IResultHandler
 	{
 		private const string ES_INDEX = "backtests";
+
+		public ElasticSearchResultHandler() :
+			base()
+		{
+		}
 
 		public override void SaveResults(string name, Result pResult)
 		{

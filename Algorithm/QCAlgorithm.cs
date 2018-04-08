@@ -580,7 +580,13 @@ namespace QuantConnect.Algorithm
         public string GetParameter(string name)
         {
             string value;
-            return _parameters.TryGetValue(name, out value) ? value : null;
+            var result = _parameters.TryGetValue(name, out value) ? value : null;
+			if (String.IsNullOrEmpty(result))
+			{
+				result = System.Environment.GetEnvironmentVariable(name.ToUpper());
+			}
+
+			return result;
         }
 
         /// <summary>

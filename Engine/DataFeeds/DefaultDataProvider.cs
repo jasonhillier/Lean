@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
@@ -25,6 +26,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
     /// </summary>
     public class DefaultDataProvider : IDataProvider, IDisposable
     {
+		private Dictionary<string, bool> _FileExistsStatus = new Dictionary<string, bool>();
         /// <summary>
         /// Retrieves data from disc to be used in an algorithm
         /// </summary>
@@ -32,7 +34,12 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         /// <returns>A <see cref="Stream"/> of the data requested</returns>
         public Stream Fetch(string key)
         {
-            if (!File.Exists(key))
+			if (!_FileExistsStatus.ContainsKey(key))
+			{
+				_FileExistsStatus[key] = File.Exists(key);
+			}
+
+            if (!_FileExistsStatus[key])
             {
 				if (key.Contains("option") && (key.Contains("openinterest") || key.Contains("trade")))
 				{

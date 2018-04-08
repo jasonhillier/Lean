@@ -51,7 +51,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
 				int quantity = OverrideQuantity;
 				if (quantity == 0)
-					quantity = _PositionSizeStart * this.InvestedTiers() + 1;
+					quantity = _PositionSizeStart * (this.InvestedTiers() + 1);
 				//seems wrong
 				DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
                 _Log("{0} Purchase {1} {2} @ {3} ({4} {5})",

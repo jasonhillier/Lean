@@ -37,9 +37,9 @@ namespace QuantConnect.Algorithm.CSharp
     {
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
-        private const string UnderlyingTicker = "VXX";
+		private string UnderlyingTicker;
         private const int _ROC_THRESHOLD = 5;
-        public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
+		public Symbol Underlying;
 		//public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
         private RateOfChangePercent _rocp;
@@ -47,13 +47,18 @@ namespace QuantConnect.Algorithm.CSharp
 
 		public override void Initialize()
         {
+			UnderlyingTicker = GetParameter("symbol");
+			Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
 			//AAPL
 			//SetStartDate(2014, 06, 06);
 			//SetEndDate(2014, 06, 06);
 
+			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
+			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
+
 			//
-			SetStartDate(2016, 01, 01);
-			SetEndDate(2017, 12, 31);
+			SetStartDate(startDate);
+			SetEndDate(endDate);
 			//SetStartDate(2015, 01, 01);
 			//SetStartDate(2018, 02, 15);
 			//SetEndDate(2018, 03, 09);

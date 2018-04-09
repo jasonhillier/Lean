@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Net;
 using QuantConnect.Configuration;
+using QuantConnect.Orders;
+using QuantConnect.Securities;
+using System.Dynamic;
+using System.ComponentModel;
 
 namespace QuantConnect.Lean.Engine.Results
 {
@@ -29,19 +33,57 @@ namespace QuantConnect.Lean.Engine.Results
 		{
 			if (pResult.Statistics.Count > 0)
 			{
+				//backtests
 				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics);
-				_Commit(backTestResult);
+				_Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
+
+				Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");
+
+				Console.WriteLine("[ElasticSearchResultHandler] + Storing result orders...");
+				//backtests-orders
+				var backTestOrders = new List<dynamic>();
+				foreach(var order in pResult.Orders)
+				{
+					var metaOrder = order.Value.ToDynamic();
+					metaOrder.backtestId = backTestResult.id;
+					metaOrder.id = metaOrder.backtestId + "_" + metaOrder.Id;
+					metaOrder.date = metaOrder.Time;
+
+					backTestOrders.Add(metaOrder);
+				}
+				_Commit(backTestOrders, ES_INDEX + "-orders");
+
+				Console.WriteLine("[ElasticSearchResultHandler] + Storing result charts...");
+				//backtests-charts
+				var chartValues = new List<BackTestChartPoint>();
+				foreach (var chart in pResult.Charts)
+				{
+					foreach (var series in chart.Value.Series)
+					{
+						foreach (var point in series.Value.Values)
+						{
+							var chartValue = new BackTestChartPoint(
+								backTestResult.id,
+								chart.Key,
+								series.Value,
+								point);
+
+							chartValues.Add(chartValue);
+						}
+					}
+				}
+				_Commit(chartValues, ES_INDEX + "-charts");
 			}
 		}
 
-		private bool _Commit(BackTestResult Result)
+		private bool _Commit(IEnumerable<dynamic> Results, string ESIndex)
 		{
-			string _PackagedData = Package(Result);
+			string _PackagedData = Package(Results, ESIndex);
 
 			Console.WriteLine("Storing " + _PackagedData.Length + " bytes...");
 
 			String username = Config.Get("es-user");
-			String password = Config.Get("es=pwd");
+			String password = Config.Get("es-pwd");
 			String encoded = System.Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
 
 			HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Config.Get("es-server") + "/_bulk");
@@ -63,30 +105,57 @@ namespace QuantConnect.Lean.Engine.Results
 		/// Serialize computed option data into a data package (string).
 		/// </summary>
 		/// <returns>Size of data package</returns>
-		private string Package(BackTestResult pResult)
-		{
+		private string Package(IEnumerable<dynamic> pResults, string pESIndex)
+		{ 
 			StringBuilder builder = new StringBuilder();
 
 			//elasticsearch document header
-			builder.AppendLine(
-				JsonConvert.SerializeObject(
-					new
-					{
-						index = new
+			foreach (var entity in pResults)
+			{
+				builder.AppendLine(
+					JsonConvert.SerializeObject(
+						new
 						{
-							_index = ES_INDEX,
-							_type = "doc",
-							_id = pResult.id
-						}
-					})
-				);
-
-			//elasticsearch document body
-			builder.AppendLine(
-				JsonConvert.SerializeObject(pResult)
+							index = new
+							{
+								_index = pESIndex,
+								_type = "doc",
+								_id = entity.id
+							}
+						})
 					);
 
+				//elasticsearch document body
+				builder.AppendLine(
+					JsonConvert.SerializeObject(entity)
+						);
+			}
+
 			return builder.ToString();
+		}
+
+		class BackTestChartPoint
+		{
+			public BackTestChartPoint(string pBacktestId, string pChartName, Series pSeriesInfo, ChartPoint pPoint)
+			{
+				backtestId = pBacktestId;
+				chart = pChartName;
+				series = pSeriesInfo.Name;
+				unit = pSeriesInfo.Unit;
+				seriesType = pSeriesInfo.SeriesType.ToString();
+				date = Time.UnixTimeStampToDateTime(pPoint.x);
+				y = pPoint.y;
+				id = pBacktestId + "_" + pChartName + "_" + pSeriesInfo.Name + "_" + pPoint.ToString();
+			}
+
+			public DateTime date { get; set; }
+			public decimal y { get; set; }
+			public string backtestId { get; set; }
+			public string chart { get; set; }
+			public string series { get; set; }
+			public string seriesType { get; set; }
+			public string unit { get; set; }
+			public string id { get; set; }
 		}
 
 		class BackTestResult
@@ -110,6 +179,19 @@ namespace QuantConnect.Lean.Engine.Results
 
 			public IDictionary<string, string> parameters { get; set; }
 			public Dictionary<string, double> stats { get; set; }
+		}
+	}
+
+	public static class DynamicExtensions
+	{
+		public static dynamic ToDynamic(this object value)
+		{
+			IDictionary<string, object> expando = new ExpandoObject();
+
+			foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(value.GetType()))
+				expando.Add(property.Name, property.GetValue(value));
+
+			return expando as ExpandoObject;
 		}
 	}
 }

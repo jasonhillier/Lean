@@ -38,13 +38,19 @@ namespace QuantConnect.Algorithm.CSharp
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
 		private string UnderlyingTicker;
-        private const int _ROC_THRESHOLD = 5;
+        private int _ROC_THRESHOLD = 5;
 		private decimal _TargetProfit = .2m;
 		public Symbol Underlying;
 		//public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStrategy _Strategy;
         private RateOfChangePercent _rocp;
 		private Slice _lastSlice;
+
+		private int _PositionSizeStart = 3;
+		private int _MinDaysRemaining = 10;
+		private int _MaxTiers = 3;
+		private int _ItmDepth = 3;
+		private int _RocPeriod = 9;
 
 		public override void Initialize()
         {
@@ -57,7 +63,13 @@ namespace QuantConnect.Algorithm.CSharp
 			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
 			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
 
+			int.TryParse(GetParameter("roc"), out _ROC_THRESHOLD);
+			int.TryParse(GetParameter("roc-period"), out _RocPeriod);
 			decimal.TryParse(GetParameter("target-profit"), out _TargetProfit);
+			int.TryParse(GetParameter("position-size"), out _PositionSizeStart);
+			int.TryParse(GetParameter("min-days"), out _MinDaysRemaining);
+			int.TryParse(GetParameter("max-tiers"), out _MaxTiers);
+			int.TryParse(GetParameter("itm-depth"), out _ItmDepth);
 
 			//
 			SetStartDate(startDate);
@@ -77,12 +89,12 @@ namespace QuantConnect.Algorithm.CSharp
 
 			var consolidator = new TradeBarConsolidator(TimeSpan.FromMinutes(MINUTE_RATE));
 			consolidator.DataConsolidated += Consolidator_DataConsolidated;
-			_rocp = new RateOfChangePercent(9);
+			_rocp = new RateOfChangePercent(_RocPeriod);
 			RegisterIndicator(Underlying, _rocp, consolidator);
 			SubscriptionManager.AddConsolidator(Underlying, consolidator);
 
 			// init strategy
-			_Strategy = new OptionStrategy(this, option, 5, 5, 4);
+			_Strategy = new OptionStrategy(this, option, _MaxTiers, _PositionSizeStart, _ItmDepth, _MinDaysRemaining);
         }
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)

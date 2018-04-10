@@ -63,13 +63,13 @@ namespace QuantConnect.Algorithm.CSharp
 			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
 			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
 
-			int.TryParse(GetParameter("roc"), out _ROC_THRESHOLD);
-			int.TryParse(GetParameter("roc-period"), out _RocPeriod);
-			decimal.TryParse(GetParameter("target-profit"), out _TargetProfit);
-			int.TryParse(GetParameter("position-size"), out _PositionSizeStart);
-			int.TryParse(GetParameter("min-days"), out _MinDaysRemaining);
-			int.TryParse(GetParameter("max-tiers"), out _MaxTiers);
-			int.TryParse(GetParameter("itm-depth"), out _ItmDepth);
+			_ROC_THRESHOLD = parseInt(GetParameter("roc"), _ROC_THRESHOLD);
+			_RocPeriod = parseInt(GetParameter("roc-period"), _RocPeriod);
+			_TargetProfit = parseDec(GetParameter("target-profit"), _TargetProfit);
+			_PositionSizeStart = parseInt(GetParameter("position-size"), _PositionSizeStart);
+			_MinDaysRemaining = parseInt(GetParameter("min-days"), _MinDaysRemaining);
+			_MaxTiers = parseInt(GetParameter("max-tiers"), _MaxTiers);
+			_ItmDepth = parseInt(GetParameter("itm-depth"), _ItmDepth);
 
 			//
 			SetStartDate(startDate);
@@ -96,6 +96,22 @@ namespace QuantConnect.Algorithm.CSharp
 			// init strategy
 			_Strategy = new OptionStrategy(this, option, _MaxTiers, _PositionSizeStart, _ItmDepth, _MinDaysRemaining);
         }
+
+		private int parseInt(string val, int defaultValue)
+		{
+			int v;
+			if (!int.TryParse(val, out v))
+				v = defaultValue;
+			return v;
+		}
+
+		private decimal parseDec(string val, decimal defaultValue)
+		{
+			decimal v;
+			if (!decimal.TryParse(val, out v))
+				v = defaultValue;
+			return v;
+		}
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
 		{

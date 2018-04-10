@@ -58,7 +58,7 @@ namespace QuantConnect.Queues
         /// <summary>
         /// Initialize the job queue:
         /// </summary>
-        public void Initialize(IApi api)
+        public virtual void Initialize(IApi api)
         {
             //
         }
@@ -67,7 +67,7 @@ namespace QuantConnect.Queues
         /// Desktop/Local Get Next Task - Get task from the Algorithm folder of VS Solution.
         /// </summary>
         /// <returns></returns>
-        public AlgorithmNodePacket NextJob(out string location)
+        public virtual AlgorithmNodePacket NextJob(out string location)
         {
             location = GetAlgorithmLocation();
                 

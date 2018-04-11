@@ -78,6 +78,8 @@ namespace QuantConnect.Lean.Engine.Results
 
 		private bool _Commit(IEnumerable<dynamic> Results, string ESIndex)
 		{
+			if (Results == null || Results.Count() == 0)
+				return false;
 			string _PackagedData = Package(Results, ESIndex);
 
 			Console.WriteLine("Storing " + _PackagedData.Length + " bytes...");

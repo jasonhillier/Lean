@@ -37,15 +37,16 @@ namespace QuantConnect.Queues
 
 			//just wait around for params
 
+			Message message = null;
+			while (message == null)
+			{
+				Log.Trace("Polling queue: {0}", _queueUrl);
 
-			Log.Trace("Polling queue: {0}", _queueUrl);
-
-			var recvMessageRequest = new ReceiveMessageRequest(_queueUrl);
-			recvMessageRequest.WaitTimeSeconds = 20;
-			var q = _sqsClient.ReceiveMessageAsync(recvMessageRequest).Result;
-			var message = q.Messages.FirstOrDefault();
-			if (message == null)
-				return null;
+				var recvMessageRequest = new ReceiveMessageRequest(_queueUrl);
+				recvMessageRequest.WaitTimeSeconds = 20;
+				var q = _sqsClient.ReceiveMessageAsync(recvMessageRequest).Result;
+				message = q.Messages.FirstOrDefault();
+			}
 
 			Log.Trace("Received a message");
 
@@ -55,6 +56,16 @@ namespace QuantConnect.Queues
 
 			job.Parameters = parameters;
 			return job;
+		}
+
+		/// <summary>
+		/// Desktop/Local acknowledge the task processed. Nothing to do.
+		/// </summary>
+		/// <param name="job"></param>
+		public override void AcknowledgeJob(AlgorithmNodePacket job)
+		{
+			// Make the console window pause so we can read log output before exiting and killing the application completely
+			Console.WriteLine("Engine.Main(): Analysis Complete");
 		}
 	}
 }

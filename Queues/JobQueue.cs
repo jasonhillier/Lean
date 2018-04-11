@@ -173,7 +173,7 @@ namespace QuantConnect.Queues
         /// Desktop/Local acknowledge the task processed. Nothing to do.
         /// </summary>
         /// <param name="job"></param>
-        public void AcknowledgeJob(AlgorithmNodePacket job)
+        public virtual void AcknowledgeJob(AlgorithmNodePacket job)
         {
             // Make the console window pause so we can read log output before exiting and killing the application completely
             Console.WriteLine("Engine.Main(): Analysis Complete. Press any key to continue.");

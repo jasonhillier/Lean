@@ -34,7 +34,7 @@ namespace QuantConnect.Lean.Engine.Results
 			if (pResult.Statistics.Count > 0)
 			{
 				//backtests
-				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics);
+				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, _algorithm.RuntimeStatistics);
 				_Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
 
 				Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");
@@ -100,6 +100,11 @@ namespace QuantConnect.Lean.Engine.Results
 			HttpWebResponse response = (HttpWebResponse)request.GetResponse();
 			response.Close();
 
+			if (response.StatusCode != HttpStatusCode.OK)
+			{
+				Console.WriteLine("[ElasticSearch] Bad response: " + response.StatusCode.ToString());            
+			}
+
 			return (response.StatusCode == HttpStatusCode.OK);
 		}
 
@@ -162,7 +167,7 @@ namespace QuantConnect.Lean.Engine.Results
 
 		class BackTestResult
 		{
-			public BackTestResult(string Name, IDictionary<string, string> Params, IDictionary<string,string> Stats)
+			public BackTestResult(string Name, IDictionary<string, string> Params, IDictionary<string,string> Stats, IDictionary<string, string> RuntimeStats)
 			{
 				name = Name;
 				date = DateTime.Now;
@@ -173,6 +178,11 @@ namespace QuantConnect.Lean.Engine.Results
 				{
 					stats[kvp.Key.Replace(" ", "_")] = double.Parse(kvp.Value.Replace("%", "").Replace("$", ""));
 				}
+				runtimeStats = new Dictionary<string, double>();
+				foreach (var kvp in RuntimeStats)
+                {
+					runtimeStats[kvp.Key.Replace(" ", "_")] = double.Parse(kvp.Value.Replace("%", "").Replace("$", ""));
+                }
 			}
 
 			public string name { get; set; }
@@ -181,6 +191,7 @@ namespace QuantConnect.Lean.Engine.Results
 
 			public IDictionary<string, string> parameters { get; set; }
 			public Dictionary<string, double> stats { get; set; }
+			public Dictionary<string, double> runtimeStats { get; set; }
 		}
 	}
 

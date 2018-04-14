@@ -55,7 +55,7 @@ namespace QuantConnect.Lean.Engine.Results
         private string _debugMessage = "";
         private List<string> _log = new List<string>();
         private string _errorMessage = "";
-        private IAlgorithm _algorithm;
+        protected IAlgorithm _algorithm;
         private ConcurrentQueue<Packet> _messages;
         private ConcurrentDictionary<string, Chart> _charts;
         private bool _isActive = true;

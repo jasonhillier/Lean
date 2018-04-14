@@ -285,20 +285,22 @@ namespace QuantConnect.Algorithm.CSharp
 
 		public void PrintStats()
 		{
-			_Algo.Log("MaxTiers Counter:\t" + _Stats.MaxTierCounter);
-			_Algo.Log("HighestTier:\t\t" + _Stats.HighestTier);
-			_Algo.Log("ExpiryClose Counter:\t" + _Stats.ExpiryCloseCounter);
-			_Algo.Log("Rollover Counter:\t" + _Stats.RolloverCounter);
-			_Algo.Log("Rollover Contracts:\t" + _Stats.RolloverContracts);
+			foreach(var key in _Stats.GetType().GetProperties())
+			{
+				var value = key.GetValue(_Stats);
+				_Algo.RuntimeStatistics[key.Name] = value.ToString();
+
+				_Algo.Log(key.Name + ":\t" + value.ToString());
+			}
 		}
 
 		public struct Stats
 		{
-			public int MaxTierCounter;
-			public int HighestTier;
-			public int RolloverCounter;
-			public int RolloverContracts;
-			public int ExpiryCloseCounter;
+			public int MaxTierCounter { get; set; }
+			public int HighestTier { get; set; }
+			public int RolloverCounter { get; set; }
+			public int RolloverContracts { get; set; }
+			public int ExpiryCloseCounter { get; set; }
 		}
     }
 }

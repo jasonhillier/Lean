@@ -38,7 +38,7 @@ namespace QuantConnect.Algorithm.CSharp
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
 		private string UnderlyingTicker;
-        private int _ROC_THRESHOLD = 5;
+        private int _ROC_THRESHOLD = 1;
 		private decimal _TargetProfit = .2m;
 		public Symbol Underlying;
 		//public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
@@ -154,8 +154,8 @@ namespace QuantConnect.Algorithm.CSharp
 					var otmOptions = _Strategy.GetOTMPositions();
 					if (otmOptions.Count > 0)
 					{
-						_Strategy.ClosePosition(otmOptions[0]);
 						_Strategy.MarketBuyNextTierOptions(_lastSlice);
+						_Strategy.ClosePosition(otmOptions[0]);
 					}
 				}
 

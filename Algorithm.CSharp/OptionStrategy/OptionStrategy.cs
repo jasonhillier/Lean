@@ -177,7 +177,7 @@ namespace QuantConnect.Algorithm.CSharp
 
 			return positions.Where((p) =>
 			{
-				return p.GetIntrinsicValue(p.Underlying.Price) < 0;
+				return p.GetIntrinsicValue(p.Underlying.Price) <= 0;
 			}).ToList();
 		}
 

@@ -36,9 +36,18 @@ namespace QuantConnect.Queues
             _queueUrl = queues.QueueUrls[0];
 		}
 
-		public bool SendJob(AlgorithmNodePacket Job)
+		public bool SendJobParameters(Dictionary<string, string> JobParams)
 		{
-			return true;
+			var msgRequest = new SendMessageRequest(_queueUrl, JsonConvert.SerializeObject(JobParams));
+			msgRequest.MessageGroupId = "optimizer";
+			msgRequest.MessageDeduplicationId = DateTime.Now.ToFileTimeUtc().ToString();
+			var response = _sqsClient.SendMessageAsync(msgRequest).Result;
+
+			Log.Trace("Send message " + msgRequest.MessageDeduplicationId + ": " + 
+				((response.HttpStatusCode == System.Net.HttpStatusCode.OK) ? "OK":"Fail!")
+			);
+
+			return response.HttpStatusCode == System.Net.HttpStatusCode.OK;
 		}
 
 		public override AlgorithmNodePacket NextJob(out string location)

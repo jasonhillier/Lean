@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using QuantConnect.Queues;
 using QuantConnect.Packets;
+using Newtonsoft.Json;
 
 namespace QuantConnect.ToolBox.AlgoOptimizer
 {
@@ -44,11 +45,61 @@ namespace QuantConnect.ToolBox.AlgoOptimizer
             //setup logging
             Log.LogHandler = new CompositeLogHandler(new ILogHandler[] { new ConsoleLogHandler() });
 
+			List<Dictionary<string, string>> generatedParameters = new List<Dictionary<string, string>>();
+
+			var parameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(Config.Get("parameter-ranges"));
+			recursivelyGenerate(parameters, generatedParameters);
+
+			Log.Trace("Generated " + generatedParameters.Count + " parameter variants");
+			Console.WriteLine("Press any key to transmit");
+			Console.ReadLine();
+
 			var queue = new AmazonSQSJobQueue();
 			queue.Connect();
-			//queue.SendJob(new AlgorithmNodePacket());
+			foreach(var p in generatedParameters)
+			{
+				queue.SendJobParameters(p);
+			}
 
-            Log.Trace("Downloading {0} quotes from {1}:{2}...", args);
+			Log.Trace("Sent messages.");
+			Console.ReadLine();
         }
+
+		public static void recursivelyGenerate(Dictionary<string, string> pPrototype, List<Dictionary<string, string>> pGeneratedParameters, int depth = 0)
+		{
+			Dictionary<string, string> parameterSet = new Dictionary<string, string>();
+
+			foreach (var kvp in pPrototype)
+			{
+				if (kvp.Value.IndexOf('[') >= 0)
+				{
+					var paramterRange = JsonConvert.DeserializeObject<List<string>>(kvp.Value);
+					foreach (var p in paramterRange)
+					{
+						var clonedPrototype = Clone(pPrototype);
+						clonedPrototype[kvp.Key] = p;
+
+						recursivelyGenerate(clonedPrototype, pGeneratedParameters, depth + 1);
+					}
+					return; //end of recurse branch
+				}
+				else
+				{
+					parameterSet[kvp.Key] = kvp.Value;
+				}
+			}
+
+			pGeneratedParameters.Add(parameterSet);
+		}
+
+		public static Dictionary<string,string> Clone(Dictionary<string,string> pSource)
+		{
+			var clonedDictionary = new Dictionary<string, string>();
+			foreach(var kvp in pSource)
+			{
+				clonedDictionary[kvp.Key] = kvp.Value;
+			}
+			return clonedDictionary;
+		}
     }
 }

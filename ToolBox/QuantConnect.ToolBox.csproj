@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
     <LangVersion>6</LangVersion>
     <TargetFrameworkProfile />
-    <StartupObject>QuantConnect.ToolBox.DukascopyDownloader.Program</StartupObject>
+    <StartupObject>QuantConnect.ToolBox.AlgoOptimizer.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -236,6 +236,7 @@
     <Compile Include="YahooDownloader\YahooDataDownloader.cs" />
     <Compile Include="ZipStreamProvider.cs" />
     <Compile Include="IBConverter\OptionDataWriter.cs" />
+    <Compile Include="AlgoOptimizer\Program.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="AlgoSeekFuturesConverter\AlgoSeek.US.Futures.PriceMultipliers.1.1.csv">
@@ -282,6 +283,10 @@
       <Project>{01911409-86be-4e7d-9947-df714138610d}</Project>
       <Name>QuantConnect.Logging</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Queues\QuantConnect.Queues.csproj">
+      <Project>{D6633172-1368-4DF6-9444-825C3E00C819}</Project>
+      <Name>QuantConnect.Queues</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="instruments_dukascopy.txt">
@@ -297,6 +302,9 @@
     </None>
   </ItemGroup>
   <ItemGroup />
+  <ItemGroup>
+    <Folder Include="AlgoOptimizer\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.

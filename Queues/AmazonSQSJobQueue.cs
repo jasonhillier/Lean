@@ -22,13 +22,23 @@ namespace QuantConnect.Queues
 		{
 			base.Initialize(api);
 
+			this.Connect();
+		}
+
+		public void Connect()
+		{
 			_sqsClient = new AmazonSQSClient(Config.Get("aws-id"), Config.Get("aws-key"), Amazon.RegionEndpoint.USWest2);
 
-			var queues = _sqsClient.ListQueuesAsync(Config.Get("aws-queue", "backtest.fifo")).Result;
-			if (queues.QueueUrls.Count <= 0)
-				return;
+            var queues = _sqsClient.ListQueuesAsync(Config.Get("aws-queue", "backtest.fifo")).Result;
+            if (queues.QueueUrls.Count <= 0)
+                return;
 
-			_queueUrl = queues.QueueUrls[0];
+            _queueUrl = queues.QueueUrls[0];
+		}
+
+		public bool SendJob(AlgorithmNodePacket Job)
+		{
+			return true;
 		}
 
 		public override AlgorithmNodePacket NextJob(out string location)

@@ -161,6 +161,7 @@
     <Reference Include="websocket-sharp, Version=1.0.4.0, Culture=neutral, PublicKeyToken=5660b08a1845a91e, processorArchitecture=MSIL">
       <HintPath>..\packages\WebSocketSharpFork.1.0.4.0\lib\net35\websocket-sharp.dll</HintPath>
     </Reference>
+    <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Common\Properties\SharedAssemblyInfo.cs">
@@ -534,6 +535,9 @@
     <Compile Include="Tradier\Tokens.cs" />
     <Compile Include="Tradier\TradierBrokerageFactory.cs" />
     <Compile Include="Tradier\UserProfile.cs" />
+    <Compile Include="TradeStation\TradeStationBrokerage.cs" />
+    <Compile Include="TradeStation\TradeStationAPI.cs" />
+    <Compile Include="TradeStation\TradeStationBrokerageFactory.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="InteractiveBrokers\IB-symbol-map.json">
@@ -568,6 +572,9 @@
     </None>
   </ItemGroup>
   <ItemGroup />
+  <ItemGroup>
+    <Folder Include="TradeStation\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

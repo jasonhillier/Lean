@@ -36,18 +36,11 @@ namespace QuantConnect.Tests.Brokerages.TradeStation
         /// <returns>A connected brokerage instance</returns>
         protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
         {
-            var accountID = TradierBrokerageFactory.Configuration.AccountID;
-            var tradier = new TradierBrokerage(orderProvider, securityProvider, accountID);
+            var accountID = TradeStationBrokerageFactory.Configuration.AccountID;
+            var accessToken = TradeStationBrokerageFactory.Configuration.AccessToken;
+            var tradier = new TradeStationBrokerage(orderProvider, securityProvider, accountID, accessToken);
 
-            var qcUserID = TradierBrokerageFactory.Configuration.QuantConnectUserID;
-            var tokens = TradierBrokerageFactory.GetTokens();
-            tradier.SetTokens(qcUserID, tokens.AccessToken, tokens.RefreshToken, tokens.IssuedAt, TimeSpan.FromSeconds(tokens.ExpiresIn));
-
-            // keep the tokens up to date in the event of a refresh
-            tradier.SessionRefreshed += (sender, args) =>
-            {
-                File.WriteAllText(TradierBrokerageFactory.TokensFile, JsonConvert.SerializeObject(args, Formatting.Indented));
-            };
+            //var qcUserID = TradeStationBrokerageFactory.Configuration.QuantConnectUserID;
 
             return tradier;
         }
@@ -89,11 +82,11 @@ namespace QuantConnect.Tests.Brokerages.TradeStation
         /// </summary>
         protected override decimal GetAskPrice(Symbol symbol)
         {
-            var tradier = (TradierBrokerage)Brokerage;
+            var tradier = (TradeStationBrokerage)Brokerage;
             var quotes = tradier.GetQuotes(new List<string> { symbol.Value });
-            return quotes.Single().Ask;
+            return (decimal)quotes.Single().Ask;
         }
-
+        /*
         [Test, TestCaseSource("OrderParameters")]
         public void AllowsOneActiveOrderPerSymbol(OrderTestParameters parameters)
         {
@@ -131,5 +124,6 @@ namespace QuantConnect.Tests.Brokerages.TradeStation
             // wait for output to be generated
             Thread.Sleep(20 * 1000);
         }
+        */
     }
 }

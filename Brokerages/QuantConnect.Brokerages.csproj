@@ -538,6 +538,8 @@
     <Compile Include="TradeStation\TradeStationBrokerage.cs" />
     <Compile Include="TradeStation\TradeStationAPI.cs" />
     <Compile Include="TradeStation\TradeStationBrokerageFactory.cs" />
+    <Compile Include="TradeStation\TradeStationBrokerage.HistoryProvider.cs" />
+    <Compile Include="TradeStation\TradeStation.DataQueueHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="InteractiveBrokers\IB-symbol-map.json">

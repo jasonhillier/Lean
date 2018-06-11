@@ -121,7 +121,7 @@ namespace QuantConnect.Brokerages.TradeStation
         public override List<Order> GetOpenOrders()
         {
             var orders = new List<Order>();
-
+			/*
             var tOrders = _tradeStationClient.GetOrdersByAccountsAsync(_accessToken, "01-01-1900", _accountKeys, "1000", "0").Result;
             foreach(var tOrder in tOrders)
             {
@@ -130,7 +130,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     orders.Add(ConvertOrder(tOrder));
                 }
             }
-
+			*/
             return orders;
         }
 

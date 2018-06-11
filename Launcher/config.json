@@ -7,6 +7,7 @@
 	// to add more!
 
 	"environment": "backtesting", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
+
 	"debug-mode": false,
 	// algorithm class selector
 	"algorithm-type-name": "BasicTemplateOptionsAlgorithm", //"BasicTemplateOptionsAlgorithm",
@@ -27,15 +28,22 @@
 	// handlers
 	"log-handler": "QuantConnect.Logging.CompositeLogHandler",
 	"messaging-handler": "QuantConnect.Messaging.Messaging",
-	"job-queue-handler": "QuantConnect.Queues.JobQueue",
+	"job-queue-handler": "QuantConnect.Queues.AmazonSQSJobQueue",
 	"api-handler": "QuantConnect.Api.Api",
 	"map-file-provider": "QuantConnect.Data.Auxiliary.LocalDiskMapFileProvider",
 	"factor-file-provider": "QuantConnect.Data.Auxiliary.LocalDiskFactorFileProvider",
 	"data-provider": "QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider",
 	"alpha-handler": "QuantConnect.Lean.Engine.Alphas.DefaultAlphaHandler",
 
+	"aws-id": "AKIAIU7GO35DE2RJDEPA",
+	"aws-key": "eXuKHxoIpUiAJLUbh6CvcDIQEI01DqIV3ctD9Ar7",
+	"es-index": "backtests",
+	"es-user": "data",
+	"es-pwd": "data*123",
+	"es-server": "http://es.hillier.us",
+
 	// limits on number of symbols to allow
-	"symbol-minute-limit": 10000,
+	"symbol-minute-limit": 100000,
 	"symbol-second-limit": 10000,
 	"symbol-tick-limit": 10000,
 
@@ -74,6 +82,10 @@
 	"tradier-lifespan": "",
 	"tradier-refresh-session": true,
 
+	// tradestation configuration
+	"tradestation-account-id": "17523411",
+	"tradestation-access-token": "enRqbmxyWTV4azRCVGdaT1gxdnJwYzRzRFhFamo1V0IyTnZwUzdQenhxMHRPTERRN3o1Rjk5QnhMbElkNXY4NXpSNm5Ea1pLMGZyZEREY0YxOE1pZm9OTEI0bUxQWWc2L0JOR3VPakRwUjNqUlkrOS8raTMyWnl1WDE1Nm10M3R2aHhKT00vTXNtWk9IV2psY3pXSTNlNTlPd0FJbm1XbFA4U2VCclFkYkg5WXdPNThyY1NFdlZISzhDa3Q2ZEJJYTZxRGVod202SUFHd3ZvVW1FSHBZWWxnUXU5ZzBvTWdDb0s1TFZURGQ4VngzWHYxdVFFUEhqSnZEelk3SUNTVnNncll0dTFLNmlLV0U3YnRJcDVFdzQ1bENKUFZwa1ZJZDZ4UFFJMDJ0d2pURk1pU0VwaTR5WDNITEpNcENmOGRjcmFaUzcxYzVJTHFEWlloaW82eDhVREs3eTIxMHoyTTkrTklBNHV5bmc2dnIvOHN1emxVZHFSNkFxVitzZ3lGd0NGQkdzUUZsSnIzN2NHVzFwK3piMjVzY0J0cnJidFZ3WThmZjdDZkVTenBTR1B4UEZKOWxYQWJFMHkrWTBxZ1ZlZHJvOFdkeWkwYXo4SmRtNnp0WjBTeFFRTzVyTHZaajN0LzUvTG5Ua2lvWEFFSzRFUmJkVHdKUmliQVJ3QkU=",
+
 	// oanda configuration
 	"oanda-environment": "Practice",
 	"oanda-access-token": "",
@@ -105,10 +117,19 @@
 	// To get your access token go to https://www.quandl.com/account/api
 	"quandl-auth-token": "",
 
-	// parameters to set in the algorithm (the below are just samples)
+	// parameters to set in the algorithm
 	"parameters": {
-		"ema-fast": 10,
-		"ema-slow": 20
+		"symbol": "VXX",
+		"start-date": "2017-01-01",
+		"end-date": "2018-02-01",
+		"target-profit": "0.5"
+	},
+	// parameters to set in the algorithm (for optimizer job generation)
+	"parameter-ranges": {
+		"symbol": "VXX",
+		"start-date": "2016-01-01",
+		"end-date": "2018-02-01",
+		"target-profit": [ "0.1", "2" ]
 	},
 
 	"environments": {
@@ -118,7 +139,7 @@
 			"live-mode": false,
 
 			"setup-handler": "QuantConnect.Lean.Engine.Setup.ConsoleSetupHandler",
-			"result-handler": "QuantConnect.Lean.Engine.Results.BacktestingResultHandler",
+			"result-handler": "QuantConnect.Lean.Engine.Results.ElasticSearchResultHandler",
 			"data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed",
 			"real-time-handler": "QuantConnect.Lean.Engine.RealTime.BacktestingRealTimeHandler",
 			"history-provider": "QuantConnect.Lean.Engine.HistoricalData.SubscriptionDataReaderHistoryProvider",

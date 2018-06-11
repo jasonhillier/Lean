@@ -65,8 +65,8 @@
     <Reference Include="NodaTime, Version=1.3.0.0, Culture=neutral, PublicKeyToken=4226afe0d9b296d1, processorArchitecture=MSIL">
       <HintPath>..\packages\NodaTime.1.3.4\lib\net35-Client\NodaTime.dll</HintPath>
     </Reference>
-    <Reference Include="nunit.framework, Version=2.6.4.14350, Culture=neutral, PublicKeyToken=96d09a1eb7f44a77, processorArchitecture=MSIL">
-      <HintPath>..\packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
+    <Reference Include="nunit.framework, Version=2.6.6.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\packages\NUnit.2.6.6\lib\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="Python.Runtime, Version=2.4.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\QuantConnect.pythonnet.1.0.5.5\lib\Python.Runtime.dll</HintPath>
@@ -123,6 +123,7 @@
     <Compile Include="Brokerages\Fxcm\FxcmStopMarketOrderTestParameters.cs" />
     <Compile Include="Brokerages\Fxcm\FxcmSymbolMapperTests.cs" />
     <Compile Include="Brokerages\GDAX\GDAXBrokerageAdditionalTests.cs" />
+    <Compile Include="Brokerages\TradeStation\TradeStationBasicTests.cs" />
     <Compile Include="Common\Brokerages\GDAXBrokerageModelTests.cs" />
     <Compile Include="Brokerages\GDAX\GDAXBrokerageIntegrationTests.cs" />
     <Compile Include="Brokerages\GDAX\GDAXBrokerageTests.cs" />
@@ -499,7 +500,6 @@
     <Folder Include="Adapters\" />
     <Folder Include="Tasks\" />
     <Folder Include="UserInterface\" />
-    <Folder Include="Brokerages\TradeStation\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm.CSharp\QuantConnect.Algorithm.CSharp.csproj">

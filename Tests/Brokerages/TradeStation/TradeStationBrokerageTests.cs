@@ -27,7 +27,7 @@ using QuantConnect.Securities;
 
 namespace QuantConnect.Tests.Brokerages.TradeStation
 {
-    [TestFixture, Ignore("This test requires a configured and active TradeStation account")]
+    [TestFixture]//, Ignore("This test requires a configured and active TradeStation account")]
     public class TradeStationBrokerageTests : BrokerageTests
     {
         /// <summary>
@@ -76,11 +76,19 @@ namespace QuantConnect.Tests.Brokerages.TradeStation
         {
             get { return 0.01m; }
         }
+		
+		[Test]
+		public void TradeStationQuotes()
+		{
+			var price = GetAskPrice(Symbols.AAPL);
+			Assert.Greater(price, 1);
+		}
+		
 
-        /// <summary>
-        /// Gets the current market price of the specified security
-        /// </summary>
-        protected override decimal GetAskPrice(Symbol symbol)
+		/// <summary>
+		/// Gets the current market price of the specified security
+		/// </summary>
+		protected override decimal GetAskPrice(Symbol symbol)
         {
             var tradier = (TradeStationBrokerage)Brokerage;
             var quotes = tradier.GetQuotes(new List<string> { symbol.Value });

@@ -121,16 +121,16 @@ namespace QuantConnect.Brokerages.TradeStation
         public override List<Order> GetOpenOrders()
         {
             var orders = new List<Order>();
-			/*
-            var tOrders = _tradeStationClient.GetOrdersByAccountsAsync(_accessToken, "01-01-1900", _accountKeys, "1000", "0").Result;
+			
+            var tOrders = _tradeStationClient.GetOrdersByAccountsAsync(_accessToken, null, _accountKeys, "10", "1").Result;
             foreach(var tOrder in tOrders)
             {
-                if (tOrder.Status == Status2.OPN || tOrder.Status == Status2.ACK)
-                {
+                //if (tOrder.Status == Status2.OPN || tOrder.Status == Status2.ACK)
+                //{
                     orders.Add(ConvertOrder(tOrder));
-                }
+                //}
             }
-			*/
+			
             return orders;
         }
 
@@ -140,16 +140,17 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <returns>The current holdings from the account</returns>
         public override List<Holding> GetAccountHoldings()
         {
-            List<Holding>holdings = new List<Holding>();
-            return holdings;
-            /*
-            var tPositions = _tradeStationClient.GetPositionsByAccountsAsync(_accessToken, _accountKeys, "").Result;
+            List<Holding> holdings = new List<Holding>();
+
+            var tPositions = _tradeStationClient.GetPositionsByAccountsAsync(_accessToken, _accountKeys, null).Result;
             foreach (var tPos in tPositions)
             {
                 holdings.Add(new Holding()
                 {
-                    Symbol = new Symbol(tPos.Symbol, )
+                    Symbol = tPos.Symbol,
+                    Quantity = (decimal)tPos.Quantity
                 });
+                /*
                 var holdings = GetPositions().Select(ConvertHolding).Where(x => x.Quantity != 0).ToList();
                 var symbols = holdings.Select(x => x.Symbol.Value).ToList();
                 var quotes = GetQuotes(symbols).ToDictionary(x => x.Symbol);
@@ -161,9 +162,9 @@ namespace QuantConnect.Brokerages.TradeStation
                         holding.MarketPrice = quote.Last;
                     }
                 }
+                */
             }
             return holdings;
-            */
         }
 
         public System.Collections.ObjectModel.ObservableCollection<Anonymous3> GetQuotes(List<string> symbols)
@@ -772,6 +773,7 @@ namespace QuantConnect.Brokerages.TradeStation
 
                 //case Status2.OPN:
                 case Status2.ACK:
+                case Status2.DON:
                     return OrderStatus.Submitted;
 
                 case Status2.Exp:

@@ -15073,6 +15073,9 @@ namespace QuantConnect.Brokerages.TradeStation
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
     public enum AdvancedOptions
     {
+        [System.Runtime.Serialization.EnumMember(Value = "")]
+        Unkown = -1,
+
         [System.Runtime.Serialization.EnumMember(Value = "Activation Rule")]
         Activation_Rule = 0,
 
@@ -15113,6 +15116,9 @@ namespace QuantConnect.Brokerages.TradeStation
 
         [System.Runtime.Serialization.EnumMember(Value = "FO")]
         FO = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = "EQ")]
+        EQ = 2,
 
         [System.Runtime.Serialization.EnumMember(Value = "S")]
         S = 2,

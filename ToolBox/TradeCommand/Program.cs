@@ -55,6 +55,12 @@ namespace QuantConnect.ToolBox.TradeCommand
 
                 var balance = broker.GetCashBalance();
                 Commands.PrintBalance(balance);
+
+                var holdings = broker.GetAccountHoldings();
+                Commands.PrintHoldings(holdings);
+
+                var orders = broker.GetOpenOrders();
+                Commands.PrintOrders(orders);
             }
             /*
             catch (Exception ex)

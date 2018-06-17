@@ -35,8 +35,8 @@
 	"data-provider": "QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider",
 	"alpha-handler": "QuantConnect.Lean.Engine.Alphas.DefaultAlphaHandler",
 
-	"aws-id": "AKIAIU7GO35DE2RJDEPA",
-	"aws-key": "eXuKHxoIpUiAJLUbh6CvcDIQEI01DqIV3ctD9Ar7",
+	"aws-id": "zzz",
+	"aws-key": "zzz",
 	"es-index": "backtests",
 	"es-user": "data",
 	"es-pwd": "data*123",

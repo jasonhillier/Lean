@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
     <LangVersion>6</LangVersion>
     <TargetFrameworkProfile />
-    <StartupObject>QuantConnect.ToolBox.AlgoOptimizer.Program</StartupObject>
+    <StartupObject>QuantConnect.ToolBox.TradeCommand.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -37,7 +37,7 @@
     <LangVersion>6</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>QuantConnect.ToolBox.AlgoOptimizer.Program</StartupObject>
+    <StartupObject>QuantConnect.ToolBox.TradeCommand.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DotNetZip, Version=1.10.1.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
@@ -158,6 +158,9 @@
     <Reference Include="WebSocket4Net, Version=0.14.1.0, Culture=neutral, PublicKeyToken=eb4e154b696bf72a, processorArchitecture=MSIL">
       <HintPath>..\packages\WebSocket4Net.0.14.1\lib\net45\WebSocket4Net.dll</HintPath>
     </Reference>
+    <Reference Include="System.ComponentModel.Composition">
+      <HintPath>..\..\..\..\..\Library\Frameworks\Mono.framework\Versions\5.12.0\lib\mono\4.5.2-api\System.ComponentModel.Composition.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ElasticSearchDownloader\Program.cs" />
@@ -237,6 +240,10 @@
     <Compile Include="ZipStreamProvider.cs" />
     <Compile Include="IBConverter\OptionDataWriter.cs" />
     <Compile Include="AlgoOptimizer\Program.cs" />
+    <Compile Include="TradeCommand\Program.cs" />
+    <Compile Include="TradeCommand\OrderProvider.cs" />
+    <Compile Include="TradeCommand\SecurityProvider.cs" />
+    <Compile Include="TradeCommand\Commands.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="AlgoSeekFuturesConverter\AlgoSeek.US.Futures.PriceMultipliers.1.1.csv">
@@ -303,6 +310,9 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup />
+  <ItemGroup>
+    <Folder Include="TradeCommand\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -181,7 +181,7 @@ namespace QuantConnect.Brokerages.TradeStation
             var tBalances = _tradeStationClient.GetBalancesByAccountsAsync(_accessToken, _accountKeys).Result;
             foreach(var tBalance in tBalances)
             {
-                balances.Add(new Cash(tBalance.Currency, (decimal)tBalance.BODNetCash, 1));
+                balances.Add(new Cash("USD", (decimal)tBalance.BODNetCash, 1));
             }
             return balances;
         }

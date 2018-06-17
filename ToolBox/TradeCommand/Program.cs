@@ -61,6 +61,12 @@ namespace QuantConnect.ToolBox.TradeCommand
 
                 var orders = broker.GetOpenOrders();
                 Commands.PrintOrders(orders);
+
+                if (orders.Count > 0)
+                {
+                    bool result = broker.CancelOrder(orders[0]);
+                    Console.WriteLine("cancel first order: {0}", result);
+                }
             }
             /*
             catch (Exception ex)

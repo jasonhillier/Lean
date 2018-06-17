@@ -125,10 +125,13 @@ namespace QuantConnect.Brokerages.TradeStation
             var tOrders = _tradeStationClient.GetOrdersByAccountsAsync(_accessToken, null, _accountKeys, "10", "1").Result;
             foreach(var tOrder in tOrders)
             {
-                //if (tOrder.Status == Status2.OPN || tOrder.Status == Status2.ACK)
-                //{
-                    orders.Add(ConvertOrder(tOrder));
-                //}
+                var pOrder = ConvertOrder(tOrder);
+                if (pOrder.Status == OrderStatus.Submitted ||
+                    pOrder.Status == OrderStatus.PartiallyFilled ||
+                    pOrder.Status == OrderStatus.New)
+                {
+                    orders.Add(pOrder);
+                }
             }
 			
             return orders;
@@ -379,7 +382,8 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
         public override bool CancelOrder(Order order)
         {
-            return false;
+            var result = _tradeStationClient.CancelOrderAsync(_accessToken, order.Id.ToString()).Result;
+            return (result.OrderStatus == OrderResponseDefinitionOrderStatus.Ok);
             /*
             Log.Trace("TradierBrokerage.CancelOrder(): " + order);
 
@@ -736,14 +740,16 @@ namespace QuantConnect.Brokerages.TradeStation
             qcOrder.Symbol = Symbol.Create(order.Symbol, SecurityType.Equity, Market.USA);
             qcOrder.Quantity = ConvertQuantity(order);
             qcOrder.Status = ConvertStatus(order.Status);
-            qcOrder.BrokerId.Add(order.OrderID.ToString());
+            qcOrder.Id = Int32.Parse(order.OrderID.ToString());
+            //qcOrder.BrokerId.Add(order.OrderID.ToString());
             //qcOrder.ContingentId =
             qcOrder.Duration = ConvertDuration(order.Duration);
-            var orderByBrokerageId = _orderProvider.GetOrderByBrokerageId(order.OrderID.ToString());
+            /*var orderByBrokerageId = _orderProvider.GetOrderByBrokerageId(order.OrderID.ToString());
             if (orderByBrokerageId != null)
             {
                 qcOrder.Id = orderByBrokerageId.Id;
             }
+            */
             qcOrder.Time = DateTime.Parse(order.TimeStamp); //TransactionDate;
             return qcOrder;
         }
@@ -769,6 +775,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     return OrderStatus.Filled;
 
                 case Status2.CAN:
+                case Status2.OUT:
                     return OrderStatus.Canceled;
 
                 //case Status2.OPN:

@@ -89,7 +89,7 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <summary>
         /// Create a new Tradier Object:
         /// </summary>
-        public TradeStationBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider, string accountID, string accessToken)
+        public TradeStationBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider, string accountID, string accessToken, bool simulation)
             : base("TradeStation Brokerage")
         {
             _orderProvider = orderProvider;
@@ -99,6 +99,8 @@ namespace QuantConnect.Brokerages.TradeStation
             _accessToken = accessToken;
 
             _tradeStationClient = new TradeStationClient();
+            if (simulation)
+                _tradeStationClient.BaseUrl = "https://sim-api.tradestation.com/v2";
 
             //_cachedOpenOrdersByTradierOrderID = new ConcurrentDictionary<long, TradierCachedOpenOrder>();
         }
@@ -197,15 +199,42 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <returns>True if the request for a new order has been placed, false otherwise</returns>
         public override bool PlaceOrder(Order order)
         {
-            return false;
-            /*
-            Log.Trace("TradierBrokerage.PlaceOrder(): " + order);
+            Log.Trace("TradeStation.PlaceOrder(): " + order);
 
             if (_cancelledQcOrderIDs.Contains(order.Id))
             {
-                Log.Trace("TradierBrokerage.PlaceOrder(): Cancelled Order: " + order.Id + " - " + order);
+                Log.Trace("TradeStation.PlaceOrder(): Cancelled Order: " + order.Id + " - " + order);
                 return false;
             }
+
+            var tsOrder = new OrderRequestDefinition();
+            tsOrder.Symbol = order.Symbol.Value;
+            tsOrder.AccountKey = _accountKeys[0];
+            tsOrder.Quantity = order.AbsoluteQuantity.ToString();
+            if (order.Direction == OrderDirection.Buy)
+                tsOrder.TradeAction = OrderRequestDefinitionTradeAction.BUY;
+            else
+                tsOrder.TradeAction = OrderRequestDefinitionTradeAction.SELLSHORT;
+            tsOrder.OrderConfirmId = Guid.NewGuid().ToString();
+            tsOrder.Duration = OrderRequestDefinitionDuration.GTC;
+
+            switch (order.Type)
+            {
+                case Orders.OrderType.Limit:
+                    tsOrder.LimitPrice = ((LimitOrder)order).LimitPrice.ToString();
+                    tsOrder.OrderType = OrderRequestDefinitionOrderType.Limit;
+                    break;
+                default:
+                    throw new Exception("Order type not supported!");
+            }
+
+            var response = _tradeStationClient.PostOrderAsync(_accessToken, tsOrder).Result;
+
+            Log.Trace("TradeStation.PlaceOrder(): " + response.Message);
+
+            return response.OrderStatus == OrderResponseDefinitionOrderStatus.Ok;
+
+            /*
 
             // before doing anything, verify only one outstanding order per symbol
             var cachedOpenOrder = _cachedOpenOrdersByTradierOrderID.FirstOrDefault(x => x.Value.Order.Symbol == order.Symbol.Value).Value;

@@ -46,7 +46,7 @@ namespace QuantConnect.ToolBox.TradeCommand
             var securityProvider = new SecurityProvider();
             var accountID = TradeStationBrokerageFactory.Configuration.AccountID;
             var accessToken = TradeStationBrokerageFactory.Configuration.AccessToken;
-            TradeStationBrokerage broker = new TradeStationBrokerage(orderProvider, securityProvider, accountID, accessToken);
+            TradeStationBrokerage broker = new TradeStationBrokerage(orderProvider, securityProvider, accountID, accessToken, TradeStationBrokerageFactory.Configuration.Simulation);
 
             try
             {
@@ -62,11 +62,22 @@ namespace QuantConnect.ToolBox.TradeCommand
                 var orders = broker.GetOpenOrders();
                 Commands.PrintOrders(orders);
 
+                broker.PlaceOrder(new Orders.LimitOrder(
+                    Symbol.Create("SPY", SecurityType.Equity, Market.USA),
+                    -10,
+                    275,
+                    DateTime.Now));
+
+                orders = broker.GetOpenOrders();
+                Commands.PrintOrders(orders);
+
+                /*
                 if (orders.Count > 0)
                 {
                     bool result = broker.CancelOrder(orders[0]);
                     Console.WriteLine("cancel first order: {0}", result);
                 }
+                */
             }
             /*
             catch (Exception ex)

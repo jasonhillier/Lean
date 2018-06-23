@@ -47,6 +47,14 @@ namespace QuantConnect.Brokerages.TradeStation
             */
 
             /// <summary>
+            /// Gets flag indicating if connecting to simulation api
+            /// </summary>
+            public static bool Simulation
+            {
+                get { return Config.GetBool("tradestation-simulation"); }
+            }
+
+            /// <summary>
             /// Gets the account ID to be used when instantiating a brokerage
             /// </summary>
             public static string AccountID
@@ -85,6 +93,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 var data = new Dictionary<string, string>();
                 data.Add("tradestation-account-id", Configuration.AccountID);
                 data.Add("tradestation-access-token", Configuration.AccessToken);
+                data.Add("tradestation-simulation", Configuration.Simulation.ToString());
                 return data;
             }
         }
@@ -108,8 +117,9 @@ namespace QuantConnect.Brokerages.TradeStation
             var errors = new List<string>();
             var accountID = Read<string>(job.BrokerageData, "tradestation-account-id", errors);
             var accessToken = Read<string>(job.BrokerageData, "tradestation-access-token", errors);
+            var simulation = Read<bool>(job.BrokerageData, "tradestation-simulation", errors);
 
-            var brokerage = new TradeStationBrokerage(algorithm.Transactions, algorithm.Portfolio, accountID, accessToken);
+            var brokerage = new TradeStationBrokerage(algorithm.Transactions, algorithm.Portfolio, accountID, accessToken, simulation);
 
             //Add the brokerage to the composer to ensure its accessible to the live data feed.
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);

@@ -4196,7 +4196,8 @@ namespace QuantConnect.Brokerages.TradeStation
                             var result_ = default(OrderResponseDefinition);
                             try
                             {
-                                result_ = Newtonsoft.Json.JsonConvert.DeserializeObject<OrderResponseDefinition>(responseData_, _settings.Value);
+                                //TODO: wtf is this an array?
+                                result_ = Newtonsoft.Json.JsonConvert.DeserializeObject<OrderResponseDefinition[]>(responseData_, _settings.Value)[0];
                                 return result_;
                             }
                             catch (System.Exception exception_)
@@ -15173,7 +15174,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private double _strikePrice;
         private string _symbol;
         private string _timeExecuted;
-        private Type5 _type;
+        private Type2 _type;
         private double _year;
 
         /// <summary>The price at which a security, futures, or other financial instrument is offered for sale.</summary>
@@ -15552,7 +15553,7 @@ namespace QuantConnect.Brokerages.TradeStation
         [Newtonsoft.Json.JsonProperty("Type", Required = Newtonsoft.Json.Required.Default)]
         [System.ComponentModel.DataAnnotations.Required]
         [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-        public Type5 Type
+        public Type2 Type
         {
             get { return _type; }
             set
@@ -15653,6 +15654,9 @@ namespace QuantConnect.Brokerages.TradeStation
     {
         [System.Runtime.Serialization.EnumMember(Value = "Sell")]
         Sell = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = "Sell Short")]
+        SellShort = 0,
 
         [System.Runtime.Serialization.EnumMember(Value = "Buy")]
         Buy = 1,
@@ -15759,17 +15763,6 @@ namespace QuantConnect.Brokerages.TradeStation
 
         [System.Runtime.Serialization.EnumMember(Value = "Stop Market")]
         Stop_Market = 3,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
-    public enum Type5
-    {
-        [System.Runtime.Serialization.EnumMember(Value = "Sell")]
-        Sell = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = "Buy")]
-        Buy = 1,
 
     }
 

@@ -103,7 +103,7 @@ namespace QuantConnect.Brokerages.TradeStation
         /// </summary>
         public override IBrokerageModel BrokerageModel
         {
-            get { return new TradierBrokerageModel(); }
+            get { return new DefaultBrokerageModel(); }
         }
 
         /// <summary>

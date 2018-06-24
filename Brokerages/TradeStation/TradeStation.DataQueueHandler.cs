@@ -44,7 +44,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private volatile bool _refresh = true;
         private Timer _refreshDelay = new Timer();
         private readonly ConcurrentDictionary<Symbol, string> _subscriptions = new ConcurrentDictionary<Symbol, string>();
-        private Stream _tradierStream;
+        private Stream _tradestationStream;
 
         /// <summary>
         /// Get a stream of ticks from the brokerage
@@ -52,9 +52,7 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <returns>IEnumerable of BaseData</returns>
         public IEnumerable<BaseData> GetNextTicks()
         {
-            throw new NotImplementedException();
-            /*
-            IEnumerator<TradierStreamData> pipe = null;
+            IEnumerator<QuoteStreamDefinition> pipe = null;
             do
             {
                 if (_subscriptions.IsEmpty)
@@ -75,7 +73,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 if (pipe != null && pipe.Current != null)
                 {
                     var tsd = pipe.Current;
-                    if (tsd.Type == "trade")
+                    if ("trade" == "trade")
                     {
                         var tick = CreateTick(tsd);
                         if (tick != null)
@@ -87,7 +85,11 @@ namespace QuantConnect.Brokerages.TradeStation
                 }
 
             } while (!_disconnect);
-            */
+        }
+
+        public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, string securityCurrency = null, string securityExchange = null)
+        {
+            return new List<Symbol>();
         }
 
         /// <summary>
@@ -139,7 +141,7 @@ namespace QuantConnect.Brokerages.TradeStation
             {
                 _refresh = true;
                 Log.Trace("TradeStationBrokerage.DataQueueHandler.Refresh(): Updating tickers..." + string.Join(",", _subscriptions.Select(x => x.Value)));
-                CloseStream();
+                //CloseStream();
                 _refreshDelay.Stop();
             };
             _refreshDelay.Start();
@@ -161,8 +163,8 @@ namespace QuantConnect.Brokerages.TradeStation
         /// </summary>
         /// <param name="tsd">Tradier stream data obejct</param>
         /// <returns>LEAN Tick object</returns>
-        /*
-        private Tick CreateTick(TradierStreamData tsd)
+
+        private Tick CreateTick(QuoteStreamDefinition tsd)
         {
             var symbol = _subscriptions.FirstOrDefault(x => x.Value == tsd.Symbol).Key;
 
@@ -170,32 +172,36 @@ namespace QuantConnect.Brokerages.TradeStation
             if (symbol == null) return null;
 
             // Occassionally Tradier sends trades with 0 volume?
+            /*
             if (tsd.TradeSize == 0) return null;
 
             // Tradier trades are US NY time only. Convert local server time to NY Time:
             var unix = Convert.ToInt64(tsd.UnixDate) / 1000;
             var utc = Time.UnixTimeStampToDateTime(unix);
+            */
+            var utc = DateTime.Parse(tsd.TradeTime);
 
             // Occassionally Tradier sends old ticks every 20sec-ish if no trading?
-            if (DateTime.UtcNow - utc > TimeSpan.FromSeconds(10)) return null;
+            //if (DateTime.UtcNow - utc > TimeSpan.FromSeconds(10)) return null;
 
             //Convert the to security timezone and pass into algorithm
             var time = utc.ConvertTo(DateTimeZone.Utc, TimeZones.NewYork);
 
             return new Tick
             {
-                Exchange = tsd.TradeExchange,
+                Exchange = tsd.Exchange,
                 TickType = TickType.Trade,
-                Quantity = (int)tsd.TradeSize,
+                Quantity = (int)tsd.Volume,
                 Time = time,
                 EndTime = time,
                 Symbol = symbol,
                 DataType = MarketDataType.Tick,
                 Suspicious = false,
-                Value = tsd.TradePrice
+                Value = (decimal)tsd.Last
             };
         }
 
+        /*
         /// <summary>
         /// Get the current market status
         /// </summary>
@@ -204,7 +210,6 @@ namespace QuantConnect.Brokerages.TradeStation
             var request = new RestRequest("markets/events/session", Method.POST);
             return Execute<TradierStreamSession>(request, TradierApiRequestType.Data, "stream");
         }
-        */
 
         /// <summary>
         /// Close the current stream async
@@ -213,25 +218,26 @@ namespace QuantConnect.Brokerages.TradeStation
         {
             if (_tradierStream != null)
             {
-                Log.Trace("TradierBrokerage.DataQueueHandler.CloseStream(): Closing stream socket...");
+                Log.Trace("TradestationBrokerage.DataQueueHandler.CloseStream(): Closing stream socket...");
                 _tradierStream.Close();
             }
         }
+        */
 
         /// <summary>
         /// Connect to tradier API strea:
         /// </summary>
         /// <param name="symbols">symbol list</param>
         /// <returns></returns>
-        /*
-        private IEnumerable<TradierStreamData> Stream(List<string> symbols)
-        {
-            var quoteStream = _tradeStationClient.StreamQuotesChangesAsync(_accessToken, String.Join(",", symbols), TransferEncoding.Chunked).Result;
 
-            quoteStream.
-            /*
-            bool success;
+        private IEnumerable<QuoteStreamDefinition> Stream(List<string> symbols)
+        {
+            //var quoteStream = _tradeStationClient.StreamQuotesChangesAsync(_accessToken, String.Join(",", symbols), TransferEncoding.Chunked).Result;
+
+            //quoteStream.
+            //bool success;
             var symbolJoined = String.Join(",", symbols);
+            /*
             var session = CreateStreamSession();
 
             if (session == null || session.SessionId == null || session.Url == null)
@@ -240,55 +246,22 @@ namespace QuantConnect.Brokerages.TradeStation
                 yield break;
             }
             Log.Trace("Tradier.Stream(): Created Stream Session Id: " + session.SessionId + " Url:" + session.Url, true);
-
+            */
 
             HttpWebRequest request;
-            do
-            {
-                //Connect to URL:
-                success = true;
-                request = (HttpWebRequest)WebRequest.Create(session.Url);
-
-                //Authenticate a request:
-                request.Accept = "application/json";
-                request.Headers.Add("Authorization", "Bearer " + AccessToken);
-
-                //Add the desired data:
-                var postData = "symbols=" + symbolJoined + "&filter=trade&sessionid=" + session.SessionId;
-
-                var encodedData = Encoding.ASCII.GetBytes(postData);
-
-                //Set post:
-                request.Method = "POST";
-                request.ContentType = "application/x-www-form-urlencoded";
-                request.ContentLength = encodedData.Length;
-
-                //Send request:
-                try
-                {
-                    using (var postStream = request.GetRequestStream())
-                    {
-                        postStream.Write(encodedData, 0, encodedData.Length);
-                    }
-                }
-                catch (Exception err)
-                {
-                    Log.Error(err, "Failed to write session parameters to URL", true);
-                    success = false;
-                }
-            }
-            while (!success);
+            request = (HttpWebRequest)WebRequest.Create(String.Format("{0}/v2/stream/quote/changes/{1}?access_token={2}", _tradeStationClient.BaseUrl, symbolJoined, _accessToken));
+            request.Accept = "application/vnd.tradestation.streams+json";
 
             //Get response as a stream:
-            Log.Trace("Tradier.Stream(): Session Created, Reading Stream...", true);
+            Log.Trace("TradeStation.Stream(): Session Created, Reading Stream...", true);
             var response = (HttpWebResponse)request.GetResponse();
-            _tradierStream = response.GetResponseStream();
-            if (_tradierStream == null)
+            _tradestationStream = response.GetResponseStream();
+            if (_tradestationStream == null)
             {
                 yield break;
             }
 
-            using (var sr = new StreamReader(_tradierStream))
+            using (var sr = new StreamReader(_tradestationStream))
             using (var jsonReader = new JsonTextReader(sr))
             {
                 var serializer = new JsonSerializer();
@@ -305,7 +278,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     }
                     catch (Exception err)
                     {
-                        Log.Trace("TradierBrokerage.DataQueueHandler.Stream(): Handled breakout / socket close from jsonRead operation: " + err.Message);
+                        Log.Trace("TradeStation.DataQueueHandler.Stream(): Handled breakout / socket close from jsonRead operation: " + err.Message);
                         break;
                     }
 
@@ -316,15 +289,15 @@ namespace QuantConnect.Brokerages.TradeStation
                     }
 
                     //Have a Tradier JSON Object:
-                    TradierStreamData tsd = null;
+                    QuoteStreamDefinition tsd = null;
                     try
                     {
-                        tsd = serializer.Deserialize<TradierStreamData>(jsonReader);
+                        tsd = serializer.Deserialize<QuoteStreamDefinition>(jsonReader);
                     }
                     catch (Exception err)
                     {
                         // Do nothing for now. Can come back later to fix. Errors are from Tradier not properly json encoding values E.g. "NaN" string.
-                        Log.Trace("TradierBrokerage.DataQueueHandler.Stream(): Handled breakout / socket close from jsonRead operation: " + err.Message);
+                        Log.Trace("TradeStation.DataQueueHandler.Stream(): Handled breakout / socket close from jsonRead operation: " + err.Message);
                     }
 
                     // don't yield garbage, just wait for the next one
@@ -335,7 +308,6 @@ namespace QuantConnect.Brokerages.TradeStation
                 }
             }
         }
-        */
 
         #endregion
     }

@@ -42,7 +42,7 @@ namespace QuantConnect.Brokerages.TradeStation
     ///  - Placing orders.
     ///  - Getting user data.
     /// </summary>
-    public partial class TradeStationBrokerage : Brokerage, IDataQueueHandler, IHistoryProvider
+    public partial class TradeStationBrokerage : Brokerage, IDataQueueHandler, IHistoryProvider, IDataQueueUniverseProvider
     {
         private readonly string _accountID;
         private List<string> _accountKeys;

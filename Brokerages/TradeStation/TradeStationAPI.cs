@@ -4,6 +4,8 @@
 // </auto-generated>
 //----------------------
 
+using System;
+
 namespace QuantConnect.Brokerages.TradeStation
 {
 #pragma warning disable // Disable all warnings
@@ -9714,7 +9716,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private string _error;
         private string _exchange;
         private double _exchangeID;
-        private string _expirationDate;
+        private DateTime? _expirationDate;
         private string _expirationType;
         private string _futureType;
         private string _industryCode;
@@ -9843,7 +9845,7 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <summary>Displays the expiration date for a futures or options contract in UTC formatted time.</summary>
         [Newtonsoft.Json.JsonProperty("ExpirationDate", Required = Newtonsoft.Json.Required.Default)]
         [System.ComponentModel.DataAnnotations.Required]
-        public string ExpirationDate
+        public DateTime? ExpirationDate
         {
             get { return _expirationDate; }
             set
@@ -14283,7 +14285,7 @@ namespace QuantConnect.Brokerages.TradeStation
         [System.Runtime.Serialization.EnumMember(Value = "STOCK")]
         STOCK = 1,
 
-        [System.Runtime.Serialization.EnumMember(Value = "FUTURE")]
+		[System.Runtime.Serialization.EnumMember(Value = "FUTURE")]
         FUTURE = 2,
 
         [System.Runtime.Serialization.EnumMember(Value = "FOREX")]
@@ -14292,7 +14294,9 @@ namespace QuantConnect.Brokerages.TradeStation
         [System.Runtime.Serialization.EnumMember(Value = "UNKNOWN")]
         UNKNOWN = 4,
 
-    }
+		[System.Runtime.Serialization.EnumMember(Value = "STOCKOPTION")]
+		STOCKOPTION = 5
+	}
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
     public enum QuoteStreamDefinitionCurrency

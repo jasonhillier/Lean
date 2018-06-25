@@ -64,7 +64,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 //If there's been an update to the subscriptions list; recreate the stream.
                 if (_refresh)
                 {
-                    var stream = Stream(GetTickers());
+                    var stream = Stream();
                     pipe = stream.GetEnumerator();
                     pipe.MoveNext();
                     _refresh = false;
@@ -89,8 +89,52 @@ namespace QuantConnect.Brokerages.TradeStation
 
         public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, string securityCurrency = null, string securityExchange = null)
         {
-            return new List<Symbol>();
-        }
+			//TODO: fix this
+			lookupName = lookupName.Replace("?", ""); //Lean puts this on for option symbols
+			var baseSymbol = Symbol.Create(lookupName, SecurityType.Equity, "USA");
+
+			string criteria = "";
+			switch(securityType)
+			{
+				case SecurityType.Equity:
+					criteria = "N=" + lookupName;
+					criteria += "&C=Stock";
+					break;
+				case SecurityType.Option:
+					criteria = "R=" + lookupName;
+					criteria += "&C=StockOption";
+					criteria += "&Stk=20"; //grab many strikes
+					break;
+				case SecurityType.Future:
+					criteria = "N=" + lookupName;
+					criteria += "&C=Future";
+					break;
+			}
+			var symbolsList = new List<Symbol>();
+			var results = _tradeStationClient.SearchSymbolsAsync(_accessToken, criteria).Result;
+			foreach(var result in results)
+			{
+				Symbol symbol;
+				if (!string.IsNullOrEmpty(result.OptionType))
+				{
+					symbol = Symbol.CreateOption(
+						baseSymbol,
+						"USA",
+						OptionStyle.American,
+						result.OptionType == "Put" ? OptionRight.Put : OptionRight.Call,
+						(decimal)result.StrikePrice,
+						(DateTime)result.ExpirationDate,
+						result.Name);
+				}
+				else
+				{
+					symbol = Symbol.Create(result.Name, SecurityType.Equity, "USA");
+				}
+				symbolsList.Add(symbol);
+			}
+
+			return symbolsList;
+		}
 
         /// <summary>
         /// Subscribe to a specific list of symbols
@@ -102,13 +146,22 @@ namespace QuantConnect.Brokerages.TradeStation
             //Add the symbols to the list if they aren't there already.
             foreach (var symbol in symbols.Where(x => !x.Value.Contains("-UNIVERSE-")))
             {
-                if (symbol.ID.SecurityType == SecurityType.Equity || symbol.ID.SecurityType == SecurityType.Option)
-                {
-                    if (_subscriptions.TryAdd(symbol, symbol.Value))
-                    {
-                        Refresh();
-                    }
-                }
+				if (symbol.ID.SecurityType == SecurityType.Equity)
+				{
+					if (_subscriptions.TryAdd(symbol, symbol.Value))
+					{
+						Refresh();
+					}
+				}
+				else if (symbol.ID.SecurityType == SecurityType.Option)
+				{
+					var optionSymbols = LookupSymbols(symbol.Value, symbol.SecurityType);
+					foreach(var option in optionSymbols)
+					{
+						_subscriptions.TryAdd(option, option.Value);
+					}
+					Refresh();
+				}
             }
         }
 
@@ -145,17 +198,6 @@ namespace QuantConnect.Brokerages.TradeStation
                 _refreshDelay.Stop();
             };
             _refreshDelay.Start();
-        }
-
-        /// <summary>
-        /// Get a string list of tickers from the symbol dictionary
-        /// </summary>
-        /// <returns>List of string tickers</returns>
-        private List<string> GetTickers()
-        {
-            var values = _subscriptions.Select(x => x.Value).ToList();
-            Log.Trace("TradierBrokerage.DataQueueHandler.GetTickers(): " + string.Join(",", values));
-            return values;
         }
 
         /// <summary>
@@ -230,14 +272,14 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <param name="symbols">symbol list</param>
         /// <returns></returns>
 
-        private IEnumerable<QuoteStreamDefinition> Stream(List<string> symbols)
+        private IEnumerable<QuoteStreamDefinition> Stream()
         {
-            //var quoteStream = _tradeStationClient.StreamQuotesChangesAsync(_accessToken, String.Join(",", symbols), TransferEncoding.Chunked).Result;
+			//var quoteStream = _tradeStationClient.StreamQuotesChangesAsync(_accessToken, String.Join(",", symbols), TransferEncoding.Chunked).Result;
 
-            //quoteStream.
-            //bool success;
-            var symbolJoined = String.Join(",", symbols);
-            /*
+			//quoteStream.
+			//bool success;
+			var symbolJoined = string.Join(",", _subscriptions.Select(x => x.Value));
+			/*
             var session = CreateStreamSession();
 
             if (session == null || session.SessionId == null || session.Url == null)
@@ -248,8 +290,8 @@ namespace QuantConnect.Brokerages.TradeStation
             Log.Trace("Tradier.Stream(): Created Stream Session Id: " + session.SessionId + " Url:" + session.Url, true);
             */
 
-            HttpWebRequest request;
-            request = (HttpWebRequest)WebRequest.Create(String.Format("{0}/v2/stream/quote/changes/{1}?access_token={2}", _tradeStationClient.BaseUrl, symbolJoined, _accessToken));
+			HttpWebRequest request;
+            request = (HttpWebRequest)WebRequest.Create(String.Format("{0}/stream/quote/changes/{1}?access_token={2}", _tradeStationClient.BaseUrl, symbolJoined, _accessToken));
             request.Accept = "application/vnd.tradestation.streams+json";
 
             //Get response as a stream:

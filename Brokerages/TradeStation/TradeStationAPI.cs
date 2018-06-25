@@ -7868,7 +7868,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private string _symbol;
         private string _symbolRoot;
         private double? _tickSizeTier;
-        private string _tradeTime;
+        private DateTime _tradeTime;
         private string _underlying;
         private double? _volume;
 
@@ -8452,8 +8452,7 @@ namespace QuantConnect.Brokerages.TradeStation
 
         /// <summary>Time of the last trade in UTC.</summary>
         [Newtonsoft.Json.JsonProperty("TradeTime", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
-        [System.ComponentModel.DataAnnotations.StringLength(int.MaxValue, MinimumLength = 1)]
-        public string TradeTime
+        public DateTime TradeTime
         {
             get { return _tradeTime; }
             set

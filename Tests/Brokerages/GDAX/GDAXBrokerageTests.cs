@@ -151,15 +151,20 @@ namespace QuantConnect.Tests.Brokerages.GDAX
                 actualFee += e.OrderFee;
                 actualQuantity += e.AbsoluteFillQuantity;
 
-                Assert.AreEqual(actualQuantity != orderQuantity ? Orders.OrderStatus.PartiallyFilled : Orders.OrderStatus.Filled, e.Status);
+                Assert.IsTrue(actualQuantity != orderQuantity);
+                Assert.AreEqual(OrderStatus.Filled, e.Status);
                 Assert.AreEqual(expectedQuantity, e.FillQuantity);
-                // order fees are pro-rated for partial fills
-                // total order fee = 0.01
-                // partial order fee = (0.01 * 5.23512 / 6.1) = 0.0085821639344262295081967213
-                Assert.AreEqual(0.00858216m, Math.Round(actualFee, 8));
+                // fill quantity = 5.23512
+                // fill price = 400.23
+                // partial order fee = (400.23 * 5.23512 * 0.003) = 6.2857562328
+                Assert.AreEqual(6.2857562328m, actualFee);
                 raised.Set();
             };
 
+            _unit.OnMessage(_unit, GDAXTestsHelpers.GetArgs(json));
+
+            // not our order, market order is completed even if not totally filled
+            json = json.Replace(id, Guid.NewGuid().ToString());
             _unit.OnMessage(_unit, GDAXTestsHelpers.GetArgs(json));
 
             //if not our order should get no event

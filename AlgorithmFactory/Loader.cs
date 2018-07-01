@@ -59,6 +59,11 @@ namespace QuantConnect.AlgorithmFactory
         private const string AlgorithmBaseTypeFullName = "QuantConnect.Algorithm.QCAlgorithm";
 
         /// <summary>
+        /// The full type name of QCAlgorithmFramework, this is so we don't pick him up when querying for types
+        /// </summary>
+        private const string FrameworkBaseTypeFullName = "QuantConnect.Algorithm.Framework.QCAlgorithmFramework";
+
+        /// <summary>
         /// Creates a new loader with a 10 second maximum load time that forces exactly one derived type to be found
         /// </summary>
         public Loader()
@@ -91,9 +96,6 @@ namespace QuantConnect.AlgorithmFactory
 
             _loaderTimeLimit = loaderTimeLimit;
             _multipleTypeNameResolverFunction = multipleTypeNameResolverFunction;
-
-            //Set the python path for loading python algorithms.
-            Environment.SetEnvironmentVariable("PYTHONPATH", Environment.CurrentDirectory);
         }
 
 
@@ -150,46 +152,34 @@ namespace QuantConnect.AlgorithmFactory
                 return false;
             }
 
+            var pythonFile = new FileInfo(assemblyPath);
+            var moduleName = pythonFile.Name.Replace(".pyc", "").Replace(".py", "");
+
+            // Set the python path for loading python algorithms.
+            var pythonPath = new[]
+            {
+                pythonFile.Directory.FullName,
+                new DirectoryInfo(Environment.CurrentDirectory).FullName,
+                Environment.GetEnvironmentVariable("PYTHONPATH")
+            };
+
+            Environment.SetEnvironmentVariable("PYTHONPATH", string.Join(OS.IsLinux ? ":" : ";", pythonPath));
+
             try
             {
-                var pythonFile = new FileInfo(assemblyPath);
-                var moduleName = pythonFile.Name.Replace(".pyc", "").Replace(".py", "");
+                algorithmInstance = new AlgorithmPythonWrapper(moduleName);
 
-                //Help python find the module
-                Environment.SetEnvironmentVariable("PYTHONPATH", pythonFile.DirectoryName);
-
-                // Initialize Python Engine
-                if (!PythonEngine.IsInitialized)
-                {
-                    PythonEngine.Initialize();
-                    PythonEngine.BeginAllowThreads();
-                }
-
-                // Import Python module
-                using (Py.GIL())
-                {
-                    Log.Trace($"Loader.TryCreatePythonAlgorithm(): Python version {PythonEngine.Version}: Importing python module {moduleName}");
-                    var module = Py.Import(moduleName);
-
-                    if (module == null)
-                    {
-                        errorMessage = $"Loader.TryCreatePythonAlgorithm(): Unable to import python module {assemblyPath}. Check for errors in the python scripts.";
-                        return false;
-                    }
-
-                    Log.Trace("Loader.TryCreatePythonAlgorithm(): Creating IAlgorithm instance.");
-
-                    algorithmInstance = new AlgorithmPythonWrapper(module);
-                }
+                PythonEngine.BeginAllowThreads();
             }
             catch (Exception e)
             {
                 Log.Error(e);
                 errorMessage = $"Loader.TryCreatePythonAlgorithm(): Unable to import python module {assemblyPath}. {e.Message}";
+                return false;
             }
 
             //Successful load.
-            return algorithmInstance != null;
+            return true;
         }
 
         /// <summary>
@@ -266,8 +256,8 @@ namespace QuantConnect.AlgorithmFactory
 
                     if (string.IsNullOrEmpty(types[0]))
                     {
-                        errorMessage = "Please verify algorithm type name matches the algorithm name in the configuration file. Unable to resolve multiple algorithm types to a single type.";
-                        Log.Error("Loader.TryCreateILAlgorithm(): Failed resolving multiple algorithm types to a single type.");
+                        errorMessage = "Unable to resolve multiple algorithm types to a single type. Please verify algorithm type name matches the algorithm name in the configuration file and that there is one and only one class derived from QCAlgorithm.";
+                        Log.Error($"Loader.TryCreateILAlgorithm(): {errorMessage}");
                         return false;
                     }
                 }
@@ -288,8 +278,10 @@ namespace QuantConnect.AlgorithmFactory
             }
             catch (Exception err)
             {
-                Log.Error(err);
-                if (err.InnerException != null) errorMessage = err.InnerException.Message;
+                errorMessage = "Unable to resolve multiple algorithm types to a single type. Please verify algorithm type name matches the algorithm name in the configuration file and that there is one and only one class derived from QCAlgorithm. ";
+                errorMessage += err.InnerException == null ? err.Message : err.InnerException.Message;
+                Log.Error($"Loader.TryCreateILAlgorithm(): {errorMessage}");
+                return false;
             }
 
             return true;
@@ -322,6 +314,7 @@ namespace QuantConnect.AlgorithmFactory
                              where !t.IsAbstract                                // require concrete impl
                              where AlgorithmInterfaceType.IsAssignableFrom(t)   // require derived from IAlgorithm
                              where t.FullName != AlgorithmBaseTypeFullName      // require not equal to QuantConnect.QCAlgorithm
+                             where t.FullName != FrameworkBaseTypeFullName      // require not equal to QuantConnect.QCAlgorithmFramework
                              where t.GetConstructor(Type.EmptyTypes) != null    // require default ctor
                              select t.FullName).ToList();
                 }

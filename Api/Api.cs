@@ -14,16 +14,11 @@
 */
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using QuantConnect.API;
-using QuantConnect.Configuration;
-using QuantConnect.Data;
 using QuantConnect.Interfaces;
 using QuantConnect.Orders;
-using QuantConnect.Packets;
-using QuantConnect.Securities;
 using RestSharp;
 using RestSharp.Extensions;
 using QuantConnect.Util;
@@ -35,8 +30,6 @@ namespace QuantConnect.Api
     /// </summary>
     public class Api : IApi
     {
-        private ApiWebSocketConnection _socketConnection;
-        private static MarketHoursDatabase _marketHoursDatabase;
         private string _dataFolder;
 
         /// <summary>
@@ -50,8 +43,6 @@ namespace QuantConnect.Api
         public virtual void Initialize(int userId, string token, string dataFolder)
         {
             ApiConnection = new ApiConnection(userId, token);
-            _socketConnection = new ApiWebSocketConnection(userId, token);
-            _marketHoursDatabase = MarketHoursDatabase.FromDataFolder(dataFolder);
             _dataFolder = dataFolder;
 
             //Allow proper decoding of orders from the API.
@@ -575,6 +566,23 @@ namespace QuantConnect.Api
         }
 
         /// <summary>
+        /// Read out the report of a backtest in the project id specified.
+        /// </summary>
+        /// <param name="projectId">Project id to read</param>
+        /// <param name="backtestId">Specific backtest id to read</param>
+        /// <returns><see cref="BacktestReport"/></returns>
+        public BacktestReport ReadBacktestReport(int projectId, string backtestId)
+        {
+            var request = new RestRequest("backtests/read/report", Method.POST);
+            request.AddParameter("backtestId", backtestId);
+            request.AddParameter("projectId", projectId);
+
+            BacktestReport report;
+            ApiConnection.TryRequest(request, out report);
+            return report;
+        }
+
+        /// <summary>
         /// Method to download and save the data purchased through QuantConnect
         /// </summary>
         /// <param name="symbol">Symbol of security of which data will be requested.</param>
@@ -653,25 +661,6 @@ namespace QuantConnect.Api
         }
 
         /// <summary>
-        /// Get the calendar open hours for the date.
-        /// </summary>
-        
-        public virtual IEnumerable<MarketHoursSegment> MarketToday(DateTime time, Symbol symbol)
-        {
-            if (Config.GetBool("force-exchange-always-open"))
-            {
-                yield return MarketHoursSegment.OpenAllDay();
-                yield break;
-            }
-
-            var hours = _marketHoursDatabase.GetExchangeHours(symbol.ID.Market, symbol, symbol.ID.SecurityType);
-            foreach (var segment in hours.MarketHours[time.DayOfWeek].Segments)
-            {
-                yield return segment;
-            }
-        }
-
-        /// <summary>
         /// Send an email to the user associated with the specified algorithm id
         /// </summary>
         /// <param name="algorithmId">The algorithm id</param>
@@ -681,33 +670,6 @@ namespace QuantConnect.Api
         public virtual void SendUserEmail(string algorithmId, string subject, string body)
         {
             //
-        }
-
-        /// <summary>
-        /// Adds the specified symbols to the subscription
-        /// </summary>
-        /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
-        public void LiveSubscribe(IEnumerable<Symbol> symbols)
-        {
-            _socketConnection.Subscribe(symbols);
-        }
-
-        /// <summary>
-        /// Removes the specified symbols to the subscription
-        /// </summary>
-        /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
-        public void LiveUnsubscribe(IEnumerable<Symbol> symbols)
-        {
-            _socketConnection.Unsubscribe(symbols);
-        }
-
-        /// <summary>
-        /// Get next ticks if they have arrived from the server.
-        /// </summary>
-        /// <returns>Array of <see cref="BaseData"/></returns>
-        public IEnumerable<BaseData> GetLiveData()
-        {
-            return _socketConnection.GetLiveData();
         }
 
         /// <summary>

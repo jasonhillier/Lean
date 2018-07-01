@@ -79,16 +79,14 @@ namespace QuantConnect.Brokerages.Backtesting
             MarketSimulation = marketSimulation;
             _pending = new ConcurrentDictionary<int, Order>();
         }
+
         /// <summary>
         /// Gets the connection status
         /// </summary>
         /// <remarks>
         /// The BacktestingBrokerage is always connected
         /// </remarks>
-        public override bool IsConnected
-        {
-            get { return true; }
-        }
+        public override bool IsConnected => true;
 
         /// <summary>
         /// Gets all open orders on the account
@@ -96,7 +94,7 @@ namespace QuantConnect.Brokerages.Backtesting
         /// <returns>The open orders returned from IB</returns>
         public override List<Order> GetOpenOrders()
         {
-            return Algorithm.Transactions.GetOpenOrders();
+            return Algorithm.Transactions.GetOpenOrders().ToList();
         }
 
         /// <summary>
@@ -279,6 +277,18 @@ namespace QuantConnect.Brokerages.Backtesting
                         continue;
                     }
 
+                    // check if the time in force handler allows fills
+                    if (order.TimeInForce.IsOrderExpired(security, order))
+                    {
+                        OnOrderEvent(new OrderEvent(order, Algorithm.UtcTime, 0m)
+                        {
+                            Status = OrderStatus.Canceled,
+                            Message = "The order has expired."
+                        });
+                        _pending.TryRemove(order.Id, out order);
+                        continue;
+                    }
+
                     // check if we would actually be able to fill this
                     if (!Algorithm.BrokerageModel.CanExecuteOrder(security, order))
                     {
@@ -294,13 +304,12 @@ namespace QuantConnect.Brokerages.Backtesting
                     catch (Exception err)
                     {
                         // if we threw an error just mark it as invalid and remove the order from our pending list
+                        OnOrderEvent(new OrderEvent(order, Algorithm.UtcTime, 0m, err.Message) { Status = OrderStatus.Invalid });
                         Order pending;
                         _pending.TryRemove(order.Id, out pending);
-                        order.Status = OrderStatus.Invalid;
-                        OnOrderEvent(new OrderEvent(order, Algorithm.UtcTime, 0, "Error in HasSufficientBuyingPowerForOrder"));
 
                         Log.Error(err);
-                        Algorithm.Error(string.Format("Order Error: id: {0}, Error executing margin models: {1}", order.Id, err.Message));
+                        Algorithm.Error($"Order Error: id: {order.Id}, Error executing margin models: {err.Message}");
                         continue;
                     }
 
@@ -348,19 +357,29 @@ namespace QuantConnect.Brokerages.Backtesting
                         catch (Exception err)
                         {
                             Log.Error(err);
-                            Algorithm.Error(string.Format("Order Error: id: {0}, Transaction model failed to fill for order type: {1} with error: {2}",
-                                order.Id, order.Type, err.Message));
+                            Algorithm.Error($"Order Error: id: {order.Id}, Transaction model failed to fill for order type: {order.Type} with error: {err.Message}");
                         }
                     }
                     else
                     {
-                        //Flag order as invalid and push off queue:
-                        order.Status = OrderStatus.Invalid;
-                        Algorithm.Error($"Order Error: id: {order.Id}, Insufficient buying power to complete order (Value:{order.GetValue(security).SmartRounding()}), Reason: {hasSufficientBuyingPowerResult.Reason}.");
+                        // invalidate the order in the algorithm before removing
+                        var message = $"Insufficient buying power to complete order (Value:{order.GetValue(security).SmartRounding()}), Reason: {hasSufficientBuyingPowerResult.Reason}.";
+                        OnOrderEvent(new OrderEvent(order, Algorithm.UtcTime, 0m, message) { Status = OrderStatus.Invalid });
+                        Order pending;
+                        _pending.TryRemove(order.Id, out pending);
+
+                        Algorithm.Error($"Order Error: id: {order.Id}, {message}");
+                        continue;
                     }
 
                     foreach (var fill in fills)
                     {
+                        // check if the fill should be emitted
+                        if (!order.TimeInForce.IsFillValid(security, order, fill))
+                        {
+                            break;
+                        }
+
                         // change in status or a new fill
                         if (order.Status != fill.Status || fill.FillQuantity != 0)
                         {

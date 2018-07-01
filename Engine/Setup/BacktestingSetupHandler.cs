@@ -115,7 +115,7 @@ namespace QuantConnect.Lean.Engine.Setup
         /// <param name="assemblyPath">The path to the assembly's location</param>
         /// <param name="algorithmNodePacket">Details of the task required</param>
         /// <returns>A new instance of IAlgorithm, or throws an exception if there was an error</returns>
-        public IAlgorithm CreateAlgorithmInstance(AlgorithmNodePacket algorithmNodePacket, string assemblyPath)
+        public virtual IAlgorithm CreateAlgorithmInstance(AlgorithmNodePacket algorithmNodePacket, string assemblyPath)
         {
             string error;
             IAlgorithm algorithm;
@@ -123,7 +123,7 @@ namespace QuantConnect.Lean.Engine.Setup
             // limit load times to 60 seconds and force the assembly to have exactly one derived type
             var loader = new Loader(algorithmNodePacket.Language, TimeSpan.FromSeconds(60), names => names.SingleOrAlgorithmTypeName(Config.Get("algorithm-type-name")));
             var complete = loader.TryCreateAlgorithmInstanceWithIsolator(assemblyPath, algorithmNodePacket.RamAllocation, out algorithm, out error);
-            if (!complete) throw new Exception(error + " Try re-building algorithm.");
+            if (!complete) throw new AlgorithmSetupException($"During the algorithm initialization, the following exception has occurred: {error}");
 
             return algorithm;
         }
@@ -202,11 +202,14 @@ namespace QuantConnect.Lean.Engine.Setup
 
                     //Initialise the algorithm, get the required data:
                     algorithm.Initialize();
+
+                    // finalize initialization
+                    algorithm.PostInitialize();
                 }
                 catch (Exception err)
                 {
                     Log.Error(err);
-                    Errors.Add(new AlgorithmSetupException("Failed to initialize algorithm: Initialize(): " + err.Message, err));
+                    Errors.Add(new AlgorithmSetupException("During the algorithm initialization, the following exception has occurred: ", err));
                 }
             }, controls.RamAllocation);
 
@@ -216,8 +219,6 @@ namespace QuantConnect.Lean.Engine.Setup
             // TODO: Refactor the BacktestResultHandler to use algorithm not job to set times
             job.PeriodStart = algorithm.StartDate;
             job.PeriodFinish = algorithm.EndDate;
-
-            algorithm.PostInitialize();
 
             //Calculate the max runtime for the strategy
             _maxRuntime = GetMaximumRuntime(job.PeriodStart, job.PeriodFinish, algorithm.SubscriptionManager, algorithm.UniverseManager, baseJob.Controls);

@@ -89,7 +89,7 @@ namespace QuantConnect.Lean.Engine.Setup
             // and step through some code that may take us longer than the default 10 seconds
             var loader = new Loader(algorithmNodePacket.Language, TimeSpan.FromHours(1), names => names.SingleOrDefault(name => MatchTypeName(name, algorithmName)));
             var complete = loader.TryCreateAlgorithmInstanceWithIsolator(assemblyPath, algorithmNodePacket.RamAllocation, out algorithm, out error);
-            if (!complete) throw new Exception(error + ": try re-building algorithm.");
+            if (!complete) throw new AlgorithmSetupException($"During the algorithm initialization, the following exception has occurred: {error}");
 
             return algorithm;
         }
@@ -149,6 +149,9 @@ namespace QuantConnect.Lean.Engine.Setup
                     //Setup Base Algorithm:
                     algorithm.Initialize();
 
+                    //Finalize Initialization
+                    algorithm.PostInitialize();
+
                     //Set the time frontier of the algorithm
                     algorithm.SetDateTime(algorithm.StartDate.ConvertToUtc(algorithm.TimeZone));
 
@@ -172,15 +175,13 @@ namespace QuantConnect.Lean.Engine.Setup
             catch (Exception err)
             {
                 Log.Error(err);
-                Errors.Add(new AlgorithmSetupException("Failed to initialize algorithm: Initialize(): " + err.Message, err));
+                Errors.Add(new AlgorithmSetupException("During the algorithm initialization, the following exception has occurred: ", err));
             }
 
             if (Errors.Count == 0)
             {
                 initializeComplete = true;
             }
-
-            algorithm.PostInitialize();
 
             return initializeComplete;
         }

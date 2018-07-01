@@ -104,18 +104,27 @@ namespace QuantConnect.Algorithm
         /// Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
         /// will be executed on day changes in the NewYork time zone (<see cref="TimeZones.NewYork"/>
         /// </summary>
-        /// <param name="pycoarse">Defines an initial coarse selection</param>
-        public void AddUniverse(PyObject pycoarse)
+        /// <param name="pyObject">Defines an initial coarse selection</param>
+        public void AddUniverse(PyObject pyObject)
         {
-            var coarse = PythonUtil.ToFunc<IEnumerable<CoarseFundamental>, object[]>(pycoarse);
-            if (coarse != null)
-            {
-                AddUniverse(c => coarse(c).Select(x => (Symbol)x));
-                return;
-            }
+            Func<IEnumerable<CoarseFundamental>, object[]> coarse;
+            Universe universe;
 
-            var type = (Type)pycoarse.GetPythonType().AsManagedObject(typeof(Type));
-            AddUniverse((dynamic)pycoarse.AsManagedObject(type));
+            if (pyObject.TryConvertToDelegate(out coarse))
+            {
+                AddUniverse(c => coarse(c.ToList()).Select(x => (Symbol)x));
+            }
+            else if (pyObject.TryConvert(out universe))
+            {
+                AddUniverse(universe);
+            }
+            else
+            {
+                using (Py.GIL())
+                {
+                    throw new ArgumentException($"QCAlgorithm.AddUniverse: {pyObject.Repr()} is not a valid argument.");
+                }
+            }
         }
 
         /// <summary>
@@ -126,9 +135,20 @@ namespace QuantConnect.Algorithm
         /// <param name="pyfine">Defines a more detailed selection with access to more data</param>
         public void AddUniverse(PyObject pycoarse, PyObject pyfine)
         {
-            var coarse = PythonUtil.ToFunc<IEnumerable<CoarseFundamental>, object[]>(pycoarse);
-            var fine = PythonUtil.ToFunc<IEnumerable<FineFundamental>, object[]>(pyfine);
-            AddUniverse(c => coarse(c).Select(x => (Symbol)x), f => fine(f).Select(x => (Symbol)x));
+            Func<IEnumerable<CoarseFundamental>, object[]> coarse;
+            Func<IEnumerable<FineFundamental>, object[]> fine;
+
+            if (pycoarse.TryConvertToDelegate(out coarse) && pyfine.TryConvertToDelegate(out fine))
+            {
+                AddUniverse(c => coarse(c.ToList()).Select(x => (Symbol)x), f => fine(f.ToList()).Select(x => (Symbol)x));
+            }
+            else
+            {
+                using (Py.GIL())
+                {
+                    throw new ArgumentException($"QCAlgorithm.AddUniverse: {pycoarse.Repr()} or {pyfine.Repr()} is not a valid argument.");
+                }
+            }
         }
 
         /// <summary>
@@ -140,7 +160,7 @@ namespace QuantConnect.Algorithm
         /// <param name="pySelector">Function delegate that accepts a DateTime and returns a collection of string symbols</param>
         public void AddUniverse(string name, Resolution resolution, PyObject pySelector)
         {
-            var selector = PythonUtil.ToFunc<DateTime, object[]>(pySelector);
+            var selector = pySelector.ConvertToDelegate<Func<DateTime, object[]>>();
             AddUniverse(name, resolution, d => selector(d).Select(x => (string)x));
         }
 
@@ -152,7 +172,7 @@ namespace QuantConnect.Algorithm
         /// <param name="pySelector">Function delegate that accepts a DateTime and returns a collection of string symbols</param>
         public void AddUniverse(string name, PyObject pySelector)
         {
-            var selector = PythonUtil.ToFunc<DateTime, object[]>(pySelector);
+            var selector = pySelector.ConvertToDelegate<Func<DateTime, object[]>>();
             AddUniverse(name, d => selector(d).Select(x => (string)x));
         }
 
@@ -167,7 +187,7 @@ namespace QuantConnect.Algorithm
         /// <param name="pySelector">Function delegate that accepts a DateTime and returns a collection of string symbols</param>
         public void AddUniverse(SecurityType securityType, string name, Resolution resolution, string market, UniverseSettings universeSettings, PyObject pySelector)
         {
-            var selector = PythonUtil.ToFunc<DateTime, object[]>(pySelector);
+            var selector = pySelector.ConvertToDelegate<Func<DateTime, object[]>>();
             AddUniverse(securityType, name, resolution, market, universeSettings, d => selector(d).Select(x => (string)x));
         }
 
@@ -275,7 +295,7 @@ namespace QuantConnect.Algorithm
             var symbol = QuantConnect.Symbol.Create(name, securityType, market);
             var config = new SubscriptionDataConfig(dataType, symbol, resolution, dataTimeZone, exchangeTimeZone, false, false, true, true, isFilteredSubscription: false);
 
-            var selector = PythonUtil.ToFunc<IEnumerable<IBaseData>, object[]>(pySelector);
+            var selector = pySelector.ConvertToDelegate<Func<IEnumerable<IBaseData>, object[]>>();
 
             AddUniverse(new FuncUniverse(config, universeSettings, SecurityInitializer, d => selector(d)
                 .Select(x => x is Symbol ? (Symbol)x : QuantConnect.Symbol.Create((string)x, securityType, market))));
@@ -317,46 +337,38 @@ namespace QuantConnect.Algorithm
         /// <param name="selector">Selects a value from the BaseData send into the indicator, if null defaults to a cast (x => (T)x)</param>
         public void RegisterIndicator(Symbol symbol, PyObject indicator, IDataConsolidator consolidator, PyObject selector = null)
         {
-            object managedObject = null;
+            IndicatorBase<IndicatorDataPoint> indicatorDataPoint;
+            IndicatorBase<IBaseDataBar> indicatorDataBar;
+            IndicatorBase<TradeBar> indicatorTradeBar;
+
+            if (indicator.TryConvert(out indicatorDataPoint))
+            {
+                Func<IBaseData, decimal> func = null;
+                selector?.TryConvert(out func);
+                RegisterIndicator(symbol, indicatorDataPoint, consolidator, func);
+                return;
+            }
+            else if (indicator.TryConvert(out indicatorDataBar))
+            {
+                Func<IBaseData, IBaseDataBar> func = null;
+                selector?.TryConvert(out func);
+                RegisterIndicator(symbol, indicatorDataBar, consolidator, func);
+                return;
+            }
+            else if (indicator.TryConvert(out indicatorTradeBar))
+            {
+                Func<IBaseData, TradeBar> func = null;
+                selector?.TryConvert(out func);
+                RegisterIndicator(symbol, indicatorTradeBar, consolidator, func);
+                return;
+            }
 
             using (Py.GIL())
             {
-                var pythonType = indicator.GetPythonType();
-                if (pythonType.Repr().Contains("QuantConnect"))
+                if (!indicator.HasAttr("Update"))
                 {
-                    managedObject = indicator.AsManagedObject(pythonType.As<Type>());
+                    throw new ArgumentException($"QCAlgorithm.RegisterIndicator(): Update method must be defined. Please checkout {indicator}");
                 }
-                else if (!indicator.HasAttr("Update"))
-                {
-                    throw new ArgumentException($"Update method must be defined. Please checkout {indicator}");
-                }
-            }
-
-            // Lean indicators are directed to other RegisterIndicator overloads
-            if (managedObject != null)
-            {
-                var indicatorDataPoint = managedObject as Indicator;
-                if (indicatorDataPoint != null)
-                {
-                    var managedSelector = (Func<IBaseData, decimal>)selector?.AsManagedObject(typeof(Func<IBaseData, decimal>));
-                    RegisterIndicator(symbol, indicatorDataPoint, consolidator, managedSelector);
-                }
-
-                var indicatorDataBar = managedObject as BarIndicator;
-                if (indicatorDataBar != null)
-                {
-                    var managedSelector = (Func<IBaseData, IBaseDataBar>)selector?.AsManagedObject(typeof(Func<IBaseData, IBaseDataBar>));
-                    RegisterIndicator(symbol, indicatorDataBar, consolidator, managedSelector);
-                }
-
-                var indicatorTradeBar = managedObject as TradeBarIndicator;
-                if (indicatorTradeBar != null)
-                {
-                    var managedSelector = (Func<IBaseData, TradeBar>)selector?.AsManagedObject(typeof(Func<IBaseData, TradeBar>));
-                    RegisterIndicator(symbol, indicatorTradeBar, consolidator, managedSelector);
-                }
-
-                return;
             }
 
             // register the consolidator for automatic updates via SubscriptionManager
@@ -531,8 +543,6 @@ namespace QuantConnect.Algorithm
         public PyObject History(PyObject tickers, int periods, Resolution? resolution = null)
         {
             var symbols = GetSymbolsFromPyObject(tickers);
-            if (symbols == null) return null;
-
             return PandasConverter.GetDataFrame(History(symbols, periods, resolution));
         }
 
@@ -547,8 +557,6 @@ namespace QuantConnect.Algorithm
         public PyObject History(PyObject tickers, TimeSpan span, Resolution? resolution = null)
         {
             var symbols = GetSymbolsFromPyObject(tickers);
-            if (symbols == null) return null;
-
             return PandasConverter.GetDataFrame(History(symbols, span, resolution));
         }
 
@@ -563,8 +571,6 @@ namespace QuantConnect.Algorithm
         public PyObject History(PyObject tickers, DateTime start, DateTime end, Resolution? resolution = null)
         {
             var symbols = GetSymbolsFromPyObject(tickers);
-            if (symbols == null) return null;
-
             return PandasConverter.GetDataFrame(History(symbols, start, end, resolution));
         }
 
@@ -580,7 +586,6 @@ namespace QuantConnect.Algorithm
         public PyObject History(PyObject type, PyObject tickers, DateTime start, DateTime end, Resolution? resolution = null)
         {
             var symbols = GetSymbolsFromPyObject(tickers);
-            if (symbols == null) return null;
 
             var requests = symbols.Select(x =>
             {
@@ -608,7 +613,6 @@ namespace QuantConnect.Algorithm
         public PyObject History(PyObject type, PyObject tickers, int periods, Resolution? resolution = null)
         {
             var symbols = GetSymbolsFromPyObject(tickers);
-            if (symbols == null) return null;
 
             var requests = symbols.Select(x =>
             {
@@ -781,35 +785,34 @@ namespace QuantConnect.Algorithm
         }
 
         /// <summary>
-        /// Gets the symbols/string from a PyObject
+        /// Gets Enumerable of <see cref="Symbol"/> from a PyObject
         /// </summary>
-        /// <param name="pyObject">PyObject containing symbols</param>
-        /// <returns>List of symbols</returns>
-        public List<Symbol> GetSymbolsFromPyObject(PyObject pyObject)
+        /// <param name="pyObject">PyObject containing Symbol or Array of Symbol</param>
+        /// <returns>Enumerable of Symbol</returns>
+        private IEnumerable<Symbol> GetSymbolsFromPyObject(PyObject pyObject)
         {
-            using (Py.GIL())
+            Symbol symbol;
+            Symbol[] symbols;
+
+            if (pyObject.TryConvert(out symbol))
             {
-                // If not a PyList, convert it into one
-                if (!PyList.IsListType(pyObject))
+                if (symbol == null) throw new ArgumentException(_symbolEmptyErrorMessage);
+                yield return symbol;
+            }
+            else if (pyObject.TryConvert(out symbols))
+            {
+                foreach (var s in symbols)
                 {
-                    var tmp = new PyList();
-                    tmp.Append(pyObject);
-                    pyObject = tmp;
+                    if (s == null) throw new ArgumentException(_symbolEmptyErrorMessage);
+                    yield return s;
                 }
-
-                var symbols = new List<Symbol>();
-                foreach (PyObject item in pyObject)
+            }
+            else
+            {
+                using (Py.GIL())
                 {
-                    var symbol = (Symbol)item.AsManagedObject(typeof(Symbol));
-
-                    if (string.IsNullOrWhiteSpace(symbol.Value))
-                    {
-                        continue;
-                    }
-
-                    symbols.Add(symbol);
+                    throw new ArgumentException($"Argument type should be Symbol or a list of Symbol. Object: {pyObject}.");
                 }
-                return symbols.Count == 0 ? null : symbols;
             }
         }
 
@@ -853,6 +856,69 @@ namespace QuantConnect.Algorithm
         public void Quit(PyObject message)
         {
             Quit(message.ToSafeString());
+        }
+
+        /// <summary>
+        /// Registers the <paramref name="handler"/> to receive consolidated data for the specified symbol
+        /// </summary>
+        /// <param name="symbol">The symbol who's data is to be consolidated</param>
+        /// <param name="period">The consolidation period</param>
+        /// <param name="handler">Data handler receives new consolidated data when generated</param>
+        /// <returns>A new consolidator matching the requested parameters with the handler already registered</returns>
+        public IDataConsolidator Consolidate(Symbol symbol, Resolution period, PyObject handler)
+        {
+            return Consolidate(symbol, period.ToTimeSpan(), null, handler);
+        }
+
+        /// <summary>
+        /// Registers the <paramref name="handler"/> to receive consolidated data for the specified symbol
+        /// </summary>
+        /// <param name="symbol">The symbol who's data is to be consolidated</param>
+        /// <param name="period">The consolidation period</param>
+        /// <param name="tickType">The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.</param>
+        /// <param name="handler">Data handler receives new consolidated data when generated</param>
+        /// <returns>A new consolidator matching the requested parameters with the handler already registered</returns>
+        public IDataConsolidator Consolidate(Symbol symbol, Resolution period, TickType? tickType, PyObject handler)
+        {
+            return Consolidate(symbol, period.ToTimeSpan(), tickType, handler);
+        }
+
+        /// <summary>
+        /// Registers the <paramref name="handler"/> to receive consolidated data for the specified symbol
+        /// </summary>
+        /// <param name="symbol">The symbol who's data is to be consolidated</param>
+        /// <param name="period">The consolidation period</param>
+        /// <param name="handler">Data handler receives new consolidated data when generated</param>
+        /// <returns>A new consolidator matching the requested parameters with the handler already registered</returns>
+        public IDataConsolidator Consolidate(Symbol symbol, TimeSpan period, PyObject handler)
+        {
+            return Consolidate(symbol, period, null, handler);
+        }
+
+        /// <summary>
+        /// Registers the <paramref name="handler"/> to receive consolidated data for the specified symbol
+        /// </summary>
+        /// <param name="symbol">The symbol who's data is to be consolidated</param>
+        /// <param name="period">The consolidation period</param>
+        /// <param name="tickType">The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.</param>
+        /// <param name="handler">Data handler receives new consolidated data when generated</param>
+        /// <returns>A new consolidator matching the requested parameters with the handler already registered</returns>
+        public IDataConsolidator Consolidate(Symbol symbol, TimeSpan period, TickType? tickType, PyObject handler)
+        {
+            // resolve consolidator input subscription
+            var type = GetSubscription(symbol, tickType).Type;
+
+            if (type == typeof(TradeBar))
+            {
+                return Consolidate(symbol, period, tickType, handler.ConvertToDelegate<Action<TradeBar>>());
+            }
+
+            if (type == typeof(QuoteBar))
+            {
+                return Consolidate(symbol, period, tickType, handler.ConvertToDelegate<Action<QuoteBar>>());
+            }
+
+            return Consolidate(symbol, period, null, handler.ConvertToDelegate<Action<BaseData>>());
         }
 
         /// <summary>
@@ -912,11 +978,12 @@ namespace QuantConnect.Algorithm
                 {
                     an = new AssemblyName(type.Repr().Split('\'')[1]);
                 }
-                var moduleBuilder = AppDomain.CurrentDomain
+                var typeBuilder = AppDomain.CurrentDomain
                     .DefineDynamicAssembly(an, AssemblyBuilderAccess.Run)
-                    .DefineDynamicModule("MainModule");
+                    .DefineDynamicModule("MainModule")
+                    .DefineType(an.Name, TypeAttributes.Class, typeof(DynamicData));
 
-                pythonType = new PythonActivator(moduleBuilder.DefineType(an.Name).CreateType(), type);
+                pythonType = new PythonActivator(typeBuilder.CreateType(), type);
 
                 ObjectActivator.AddActivator(pythonType.Type, pythonType.Factory);
 

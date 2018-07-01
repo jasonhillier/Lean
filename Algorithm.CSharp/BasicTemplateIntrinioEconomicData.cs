@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -14,42 +14,49 @@
 */
 
 using System;
+using System.Collections.Generic;
 using QuantConnect.Data;
 using QuantConnect.Data.Custom.Intrinio;
 using QuantConnect.Indicators;
-using QuantConnect.Orders;
-using QuantConnect.Securities;
+using QuantConnect.Parameters;
 
 namespace QuantConnect.Algorithm.CSharp
 {
     /// <summary>
-    /// Basic template algorithm simply initializes the date range and cash. This is a skeleton
-    /// framework you can use for designing an algorithm.
+    ///     Basic template algorithm simply initializes the date range and cash. This is a skeleton
+    ///     framework you can use for designing an algorithm.
     /// </summary>
     /// <meta name="tag" content="using data" />
     /// <meta name="tag" content="using quantconnect" />
     /// <meta name="tag" content="trading and orders" />
-    public class BasicTemplateIntrinioEconomicData : QCAlgorithm
+    public class BasicTemplateIntrinioEconomicData : QCAlgorithm, IRegressionAlgorithmDefinition
     {
-        private Symbol _uso;    // United States Oil Fund LP
-        private Symbol _bno;    // United States Brent Oil Fund LP
+        // Get the intrinio credentials from the parameters.
+        [Parameter("intrinio-username")]
+        public string _user;
+        [Parameter("intrinio-password")]
+        public string _password;
 
-        Identity _wti = new Identity("WTI");
-        Identity _brent = new Identity("Brent");
+        private Symbol _uso; // United States Oil Fund LP
+        private Symbol _bno; // United States Brent Oil Fund LP
+
+        private readonly Identity _brent = new Identity("Brent");
+        private readonly Identity _wti = new Identity("WTI");
+
         private CompositeIndicator<IndicatorDataPoint> _spread;
 
         /// <summary>
-        /// Initialise the data and resolution required, as well as the cash and start-end dates for your algorithm. All algorithms must initialized.
+        ///     Initialise the data and resolution required, as well as the cash and start-end dates for your algorithm. All
+        ///     algorithms must initialized.
         /// </summary>
         public override void Initialize()
         {
-            SetStartDate(2010, 01, 01); //Set Start Date
-            SetEndDate(2013, 12, 31); //Set End Date
-            SetCash(100000); //Set Strategy Cash
+            SetStartDate(year: 2010, month: 01, day: 01); //Set Start Date
+            SetEndDate(year: 2013, month: 12, day: 31); //Set End Date
+            SetCash(startingCash: 100000); //Set Strategy Cash
 
             // Set your Intrinino user and password.
-            IntrinioConfig.SetUserAndPassword("<YourUser>", "<YourPassword>");
-            // The Intrinio user and password can be also defined in the config.json file for local backtest.
+            IntrinioConfig.SetUserAndPassword(_user, _password);
 
             // Find more symbols here: http://quantconnect.com/data
             // Forex, CFD, Equities Resolutions: Tick, Second, Minute, Hour, Daily.
@@ -64,33 +71,68 @@ namespace QuantConnect.Algorithm.CSharp
         }
 
         /// <summary>
-        /// OnData event is the primary entry point for your algorithm. Each new data point will be pumped in here.
+        ///     OnData event is the primary entry point for your algorithm. Each new data point will be pumped in here.
         /// </summary>
         /// <param name="data">Slice object keyed by symbol containing the stock data</param>
         public override void OnData(Slice data)
         {
-            if ((_spread > 0 && !Portfolio[_bno].IsLong) || 
-                (_spread < 0 && !Portfolio[_uso].IsShort))
+            var customData = data.Get<IntrinioEconomicData>();
+            if (customData.Count == 0) return;
+
+            foreach (var economicData in customData.Values)
             {
+                if (economicData.Symbol.Value == IntrinioEconomicDataSources.Commodities.CrudeOilWTI)
+                {
+                    _wti.Update(economicData.Time, economicData.Price);
+                }
+                else
+                {
+                    _brent.Update(economicData.Time, economicData.Price);
+                }
+            }
+
+            if (_spread > 0 && !Portfolio[_bno].IsLong ||
+                _spread < 0 && !Portfolio[_uso].IsShort)
+            {
+                var logText = _spread > 0 ?
+                    new[] {"higher", "long", "short"} :
+                    new[] {"lower", "short", "long"};
+
+                Log($"Brent Price is {logText[0]} than West Texas. Go {logText[1]} BNO and {logText[2]} USO.");
                 SetHoldings(_bno, 0.25 * Math.Sign(_spread));
                 SetHoldings(_uso, -0.25 * Math.Sign(_spread));
-            } 
+            }
         }
 
-        public void OnData(IntrinioEconomicData economicData)
+        /// <summary>
+        /// This is used by the regression test system to indicate which languages this algorithm is written in.
+        /// </summary>
+        public Language[] Languages { get; } = { Language.CSharp, Language.Python };
+
+        /// <summary>
+        /// This is used by the regression test system to indicate what the expected statistics are from running the algorithm
+        /// </summary>
+        public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
-            string oilMarket;
-            if (economicData.Symbol.Value == IntrinioEconomicDataSources.Commodities.CrudeOilWTI)
-            {
-                oilMarket = "West Texas Intermediate";
-                _wti.Update(economicData.Time, economicData.Price);
-            }
-            else
-            {
-                oilMarket = "Brent";
-                _brent.Update(economicData.Time, economicData.Price);
-            }
-            // Log(string.Format("Crude Oil {0} price {1:F4}", oilMarket, economicData.Value));
-        }
+            {"Total Trades", "89"},
+            {"Average Win", "0.09%"},
+            {"Average Loss", "-0.01%"},
+            {"Compounding Annual Return", "5.704%"},
+            {"Drawdown", "4.800%"},
+            {"Expectancy", "1.469"},
+            {"Net Profit", "24.865%"},
+            {"Sharpe Ratio", "1.143"},
+            {"Loss Rate", "70%"},
+            {"Win Rate", "30%"},
+            {"Profit-Loss Ratio", "7.23"},
+            {"Alpha", "0.065"},
+            {"Beta", "-0.522"},
+            {"Annual Standard Deviation", "0.048"},
+            {"Annual Variance", "0.002"},
+            {"Information Ratio", "0.74"},
+            {"Tracking Error", "0.048"},
+            {"Treynor Ratio", "-0.105"},
+            {"Total Fees", "$100.58"}
+        };
     }
 }

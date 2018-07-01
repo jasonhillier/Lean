@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -26,7 +26,7 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="using data" />
     /// <meta name="tag" content="using quantconnect" />
     /// <meta name="tag" content="trading and orders" />
-    public class BasicTemplateAlgorithm : QCAlgorithm
+    public class BasicTemplateAlgorithm : QCAlgorithm, IRegressionAlgorithmDefinition
     {
         private Symbol _spy = QuantConnect.Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
         private RateOfChange _roc;
@@ -73,5 +73,36 @@ namespace QuantConnect.Algorithm.CSharp
                 Debug("Purchased Stock");
             }
         }
+
+        /// <summary>
+        /// This is used by the regression test system to indicate which languages this algorithm is written in.
+        /// </summary>
+        public Language[] Languages { get; } = { Language.CSharp, Language.Python };
+
+        /// <summary>
+        /// This is used by the regression test system to indicate what the expected statistics are from running the algorithm
+        /// </summary>
+        public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
+        {
+            {"Total Trades", "1"},
+            {"Average Win", "0%"},
+            {"Average Loss", "0%"},
+            {"Compounding Annual Return", "264.583%"},
+            {"Drawdown", "2.200%"},
+            {"Expectancy", "0"},
+            {"Net Profit", "1.668%"},
+            {"Sharpe Ratio", "4.41"},
+            {"Loss Rate", "0%"},
+            {"Win Rate", "0%"},
+            {"Profit-Loss Ratio", "0"},
+            {"Alpha", "0.007"},
+            {"Beta", "76.354"},
+            {"Annual Standard Deviation", "0.193"},
+            {"Annual Variance", "0.037"},
+            {"Information Ratio", "4.354"},
+            {"Tracking Error", "0.193"},
+            {"Treynor Ratio", "0.011"},
+            {"Total Fees", "$3.27"}
+        };
     }
 }

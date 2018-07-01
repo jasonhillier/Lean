@@ -250,12 +250,28 @@ namespace QuantConnect.Lean.Engine.DataFeeds
 
             if (_subscriptions.TryGetValue(configuration, out subscription))
             {
+                // don't remove universe subscriptions immediately, instead mark them as disposed
+                // so we can turn the crank one more time to ensure we emit security changes properly
+                if (subscription.IsUniverseSelectionSubscription && subscription.Universe.DisposeRequested)
+                {
+                    // subscription syncer will dispose the universe AFTER we've run selection a final time
+                    // and then will invoke SubscriptionFinished which will remove the universe subscription
+                    return false;
+                }
+
                 if (!_subscriptions.TryRemove(configuration, out subscription))
                 {
                     Log.Error("FileSystemDataFeed.RemoveSubscription(): Unable to remove: " + configuration);
                     return false;
                 }
 
+                // if the security is no longer a member of the universe, then mark the subscription properly
+                // universe may be null for internal currency conversion feeds
+                // TODO : Put currency feeds in their own internal universe
+                if (subscription.Universe != null && !subscription.Universe.Members.ContainsKey(configuration.Symbol))
+                {
+                    subscription.MarkAsRemovedFromUniverse();
+                }
                 subscription.Dispose();
                 Log.Debug("FileSystemDataFeed.RemoveSubscription(): Removed " + configuration);
 
@@ -361,27 +377,30 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         {
             if (request.IsUniverseSubscription)
             {
-                if (request.Universe is UserDefinedUniverse)
+                if (request.Universe is ITimeTriggeredUniverse)
                 {
-                    // Trigger universe selection when security added/removed after Initialize
-                    var universe = (UserDefinedUniverse) request.Universe;
-                    universe.CollectionChanged += (sender, args) =>
+                    var universe = request.Universe as UserDefinedUniverse;
+                    if (universe != null)
                     {
-                        var items =
-                            args.Action == NotifyCollectionChangedAction.Add ? args.NewItems :
-                            args.Action == NotifyCollectionChangedAction.Remove ? args.OldItems : null;
+                        // Trigger universe selection when security added/removed after Initialize
+                        universe.CollectionChanged += (sender, args) =>
+                        {
+                            var items =
+                                args.Action == NotifyCollectionChangedAction.Add ? args.NewItems :
+                                args.Action == NotifyCollectionChangedAction.Remove ? args.OldItems : null;
 
-                        if (items == null) return;
+                            if (items == null) return;
 
-                        var symbol = items.OfType<Symbol>().FirstOrDefault();
-                        if (symbol == null) return;
+                            var symbol = items.OfType<Symbol>().FirstOrDefault();
+                            if (symbol == null) return;
 
-                        var collection = new BaseDataCollection(_algorithm.UtcTime, symbol);
-                        var changes = _universeSelection.ApplyUniverseSelection(universe, _algorithm.UtcTime, collection);
-                        _algorithm.OnSecuritiesChanged(changes);
-                    };
+                            var collection = new BaseDataCollection(_algorithm.UtcTime, symbol);
+                            var changes = _universeSelection.ApplyUniverseSelection(universe, _algorithm.UtcTime, collection);
+                            _algorithm.OnSecuritiesChanged(changes);
+                        };
+                    }
 
-                    return new UserDefinedUniverseSubscriptionEnumeratorFactory(request.Universe as UserDefinedUniverse, MarketHoursDatabase.FromDataFolder());
+                    return new TimeTriggeredUniverseSubscriptionEnumeratorFactory(request.Universe as ITimeTriggeredUniverse, MarketHoursDatabase.FromDataFolder());
                 }
                 if (request.Configuration.Type == typeof (CoarseFundamental))
                 {
@@ -461,7 +480,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
             syncer.SubscriptionFinished += (sender, subscription) =>
             {
                 RemoveSubscription(subscription.Configuration);
-                Log.Debug(string.Format("FileSystemDataFeed.GetEnumerator(): Finished subscription: {0} at {1} UTC", subscription.Configuration, _algorithm.UtcTime));
+                Log.Debug($"FileSystemDataFeed.GetEnumerator(): Finished subscription: {subscription.Configuration} at {_algorithm.UtcTime} UTC");
             };
 
             while (!_cancellationTokenSource.IsCancellationRequested)

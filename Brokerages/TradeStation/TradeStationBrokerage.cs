@@ -737,7 +737,7 @@ namespace QuantConnect.Brokerages.TradeStation
         protected Order ConvertOrder(Anonymous8 order)
         {
             Order qcOrder;
-            qcOrder = new LimitOrder() { LimitPrice = (decimal)order.LimitPrice };
+            qcOrder = new LimitOrder() {LimitPrice = (decimal)order.LimitPrice };
             //TODO
             /*
             switch (order.OrderType)
@@ -768,7 +768,7 @@ namespace QuantConnect.Brokerages.TradeStation
             qcOrder.Id = Int32.Parse(order.OrderID.ToString());
             //qcOrder.BrokerId.Add(order.OrderID.ToString());
             //qcOrder.ContingentId =
-            qcOrder.Duration = ConvertDuration(order.Duration);
+            qcOrder.Properties.TimeInForce = ConvertDuration(order.Duration);
             /*var orderByBrokerageId = _orderProvider.GetOrderByBrokerageId(order.OrderID.ToString());
             if (orderByBrokerageId != null)
             {
@@ -782,10 +782,10 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <summary>
         /// Converts the tradier order duration into a qc order duration
         /// </summary>
-        protected OrderDuration ConvertDuration(string duration)
+        protected TimeInForce ConvertDuration(string duration)
         {
             //TODO
-            return OrderDuration.GTC;
+            return TimeInForce.GoodTilCanceled;
         }
 
         /// <summary>

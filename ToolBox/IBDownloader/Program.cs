@@ -74,7 +74,7 @@ namespace QuantConnect.ToolBox.IBDownloader
                 var dataDirectory = Config.Get("data-folder", "../../../Data");
 
                 // Create IB Broker Gateway Runner
-                InteractiveBrokersGatewayRunner.StartFromConfiguration();
+                //InteractiveBrokersGatewayRunner.StartFromConfiguration();
 
                 // Only FOREX for now
                 SecurityType securityType = SecurityType.Forex;
@@ -133,11 +133,12 @@ namespace QuantConnect.ToolBox.IBDownloader
             }
             finally
             {
-
+                /*
                 if (InteractiveBrokersGatewayRunner.IsRunning())
                 {
                     InteractiveBrokersGatewayRunner.Stop();
                 }
+                */
             }
 
         }

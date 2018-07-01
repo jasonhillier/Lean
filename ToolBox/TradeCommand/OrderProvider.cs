@@ -63,6 +63,11 @@ namespace QuantConnect.ToolBox.TradeCommand
             return _orders.FirstOrDefault(x => x.BrokerId.Contains(brokerageId));
         }
 
+        public IEnumerable<OrderTicket> GetOpenOrderTickets(Func<OrderTicket, bool> filter = null)
+        {
+            throw new NotImplementedException("This method has not been implemented");
+        }
+
         public IEnumerable<OrderTicket> GetOrderTickets(Func<OrderTicket, bool> filter = null)
         {
             throw new NotImplementedException("This method has not been implemented");
@@ -76,6 +81,11 @@ namespace QuantConnect.ToolBox.TradeCommand
         public IEnumerable<Order> GetOrders(Func<Order, bool> filter)
         {
             return _orders.Where(filter);
+        }
+
+        List<Order> IOrderProvider.GetOpenOrders(Func<Order, bool> filter)
+        {
+            throw new NotImplementedException();
         }
     }
 }

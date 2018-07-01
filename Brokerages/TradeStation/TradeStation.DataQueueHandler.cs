@@ -120,6 +120,7 @@ namespace QuantConnect.Brokerages.TradeStation
 					criteria += "&C=Future";
 					break;
 			}
+
 			var symbolsList = new List<Symbol>();
 			var results = _tradeStationClient.SearchSymbolsAsync(_accessToken, criteria).Result;
 			foreach(var result in results)
@@ -128,7 +129,7 @@ namespace QuantConnect.Brokerages.TradeStation
 				if (!string.IsNullOrEmpty(result.OptionType))
 				{
 					symbol = Symbol.CreateOption(
-						lookupSymbol,
+                        lookupSymbol.Underlying,
 						"USA",
 						OptionStyle.American,
 						result.OptionType == "Put" ? OptionRight.Put : OptionRight.Call,
@@ -164,17 +165,13 @@ namespace QuantConnect.Brokerages.TradeStation
 						Refresh();
 					}
 				}
-				else if (symbol.ID.SecurityType == SecurityType.Option)
-				{
-					if (!_subscriptions.ContainsKey(symbol))
-					{
-						var optionSymbols = LookupSymbols(symbol);
-						_optionList[symbol] = new List<Symbol>(optionSymbols);
-
-						if (_subscriptions.TryAdd(symbol, symbol.Value))
-							Refresh();
-					}
-				}
+                else if (symbol.ID.SecurityType == SecurityType.Option && symbol.IsCanonical())
+                {
+                    if (_subscriptions.TryAdd(symbol.Underlying, symbol.Underlying.Value))
+                    {
+                        Refresh();
+                    }
+                }
             }
         }
 

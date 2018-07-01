@@ -150,11 +150,7 @@ namespace QuantConnect.Brokerages.TradeStation
             var tPositions = _tradeStationClient.GetPositionsByAccountsAsync(_accessToken, _accountKeys, null).Result;
             foreach (var tPos in tPositions)
             {
-                holdings.Add(new Holding()
-                {
-                    Symbol = tPos.Symbol,
-                    Quantity = (decimal)tPos.Quantity
-                });
+                holdings.Add(ConvertHolding(tPos));
                 /*
                 var holdings = GetPositions().Select(ConvertHolding).Where(x => x.Quantity != 0).ToList();
                 var symbols = holdings.Select(x => x.Symbol.Value).ToList();
@@ -849,24 +845,54 @@ namespace QuantConnect.Brokerages.TradeStation
             }
         }
 
+        protected Symbol ConvertSymbol(string pSymbolName, AssetType2 pAssetType, string pMarket = Market.USA, DateTime? pExpDate = null, OptionRight? pOptionRight = null, double pStrike = 0)
+        {
+            switch(pAssetType)
+            {
+                case AssetType2.Fu:
+                    return Symbol.CreateFuture(pSymbolName, pMarket, (DateTime)pExpDate);
+
+                case AssetType2.Op:
+                    return Symbol.CreateOption(pSymbolName, pMarket, OptionStyle.American, (OptionRight)pOptionRight, (decimal)pStrike, (DateTime)pExpDate);
+
+                case AssetType2.EQ:
+                default:
+                    return Symbol.Create(pSymbolName, SecurityType.Equity, pMarket);
+            }
+        }
+
         /// <summary>
         /// Converts the tradier position into a qc holding
         /// </summary>
-        /*
-        protected Holding ConvertHolding(TradierPosition position)
+        protected Holding ConvertHolding(Anonymous7 position)
         {
+            DateTime expDate = DateTime.MinValue;
+            DateTime.TryParse(position.ContractExpireDate, out expDate);
+
+            Symbol symbol;
+
+            if (!_optionNameResolver.TryGetValue(position.Symbol, out symbol))
+            {
+                symbol = ConvertSymbol(
+                        position.Symbol,
+                        position.AssetType,
+                        Market.USA,
+                        expDate,
+                    OptionRight.Put, //TODO: resolve this
+                    position.StrikePrice);
+            }
+
             return new Holding
             {
-                Symbol = Symbol.Create(position.Symbol, SecurityType.Equity, Market.USA),
-                Type = SecurityType.Equity,
-                AveragePrice = position.CostBasis / position.Quantity,
+                Symbol = symbol,
+                Type = symbol.SecurityType,
+                AveragePrice = (decimal)position.AccountTotalCost / (decimal)position.Quantity,
                 ConversionRate = 1.0m,
                 CurrencySymbol = "$",
-                MarketPrice = 0m, //--> GetAccountHoldings does a call to GetQuotes to fill this data in
-                Quantity = position.Quantity
+                MarketPrice = (decimal)position.AveragePrice,
+                Quantity = (decimal)position.Quantity
             };
         }
-        */
 
         #endregion
     }

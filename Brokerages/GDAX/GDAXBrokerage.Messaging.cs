@@ -28,6 +28,7 @@ using System.Threading;
 using RestSharp;
 using System.Text.RegularExpressions;
 using QuantConnect.Logging;
+using QuantConnect.Orders.Fees;
 using QuantConnect.Util;
 
 namespace QuantConnect.Brokerages.GDAX
@@ -35,7 +36,7 @@ namespace QuantConnect.Brokerages.GDAX
     public partial class GDAXBrokerage
     {
         #region Declarations
-        private readonly object _tickLocker = new object();
+
         /// <summary>
         /// Collection of partial split messages
         /// </summary>
@@ -46,7 +47,6 @@ namespace QuantConnect.Brokerages.GDAX
         private readonly CancellationTokenSource _canceller = new CancellationTokenSource();
         private readonly ConcurrentQueue<WebSocketMessage> _messageBuffer = new ConcurrentQueue<WebSocketMessage>();
         private volatile bool _streamLocked;
-        private readonly ConcurrentDictionary<int, decimal> _orderFees = new ConcurrentDictionary<int, decimal>();
         private readonly ConcurrentDictionary<Symbol, OrderBook> _orderBooks = new ConcurrentDictionary<Symbol, OrderBook>();
         private readonly bool _isDataQueueHandler;
 
@@ -55,6 +55,10 @@ namespace QuantConnect.Brokerages.GDAX
         internal enum GdaxEndpointType { Public, Private }
         private readonly RateGate _publicEndpointRateLimiter = new RateGate(6, TimeSpan.FromSeconds(1));
         private readonly RateGate _privateEndpointRateLimiter = new RateGate(10, TimeSpan.FromSeconds(1));
+
+        // order ids needed for market order fill tracking
+        private string _pendingGdaxMarketOrderId;
+        private int _pendingLeanMarketOrderId;
 
         /// <summary>
         /// Rest client used to call missing conversion rates
@@ -66,6 +70,11 @@ namespace QuantConnect.Brokerages.GDAX
         /// The list of websocket channels to subscribe
         /// </summary>
         protected virtual string[] ChannelNames { get; } = { "heartbeat", "user", "matches" };
+
+        /// <summary>
+        /// Locking object for the Ticks list in the data queue handler
+        /// </summary>
+        protected readonly object TickLocker = new object();
 
         /// <summary>
         /// Constructor for brokerage
@@ -83,7 +92,7 @@ namespace QuantConnect.Brokerages.GDAX
             FillSplit = new ConcurrentDictionary<long, GDAXFill>();
             _passPhrase = passPhrase;
             _algorithm = algorithm;
-            RateClient = new RestClient("http://api.fixer.io/latest?base=usd");
+            RateClient = new RestClient("http://data.fixer.io/api/latest?base=usd&access_key=26a2eb9f13db3f14b6df6ec2379f9261");
 
             WebSocket.Open += (sender, args) =>
             {
@@ -185,23 +194,18 @@ namespace QuantConnect.Brokerages.GDAX
                     OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"GDAXBrokerage.OnMessage: {error.Message} {error.Reason}"));
                     return;
                 }
-                else if (raw.Type == "done")
-                {
-                    OrderDone(e.Message);
-                    return;
-                }
                 else if (raw.Type == "match")
                 {
                     OrderMatch(e.Message);
                     return;
                 }
-                else if (raw.Type == "open" || raw.Type == "change" || raw.Type == "received" || raw.Type == "subscriptions" || raw.Type == "last_match")
+                else if (raw.Type == "open" || raw.Type == "change" || raw.Type == "done" || raw.Type == "received" || raw.Type == "subscriptions" || raw.Type == "last_match")
                 {
                     //known messages we don't need to handle or log
                     return;
                 }
 
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, -1, ("GDAXWebsocketsBrokerage.OnMessage: Unexpected message format: " + e.Message)));
+                Log.Trace($"GDAXWebsocketsBrokerage.OnMessage: Unexpected message format: {e.Message}");
             }
             catch (Exception exception)
             {
@@ -314,6 +318,7 @@ namespace QuantConnect.Brokerages.GDAX
 
         private void OrderMatch(string data)
         {
+            // deserialize the current match (trade) message
             var message = JsonConvert.DeserializeObject<Messages.Matched>(data, JsonSettings);
 
             if (_isDataQueueHandler)
@@ -321,32 +326,80 @@ namespace QuantConnect.Brokerages.GDAX
                 EmitTradeTick(message);
             }
 
-            var cached = CachedOrderIDs
-                .Where(o => o.Value.BrokerId.Contains(message.MakerOrderId) || o.Value.BrokerId.Contains(message.TakerOrderId))
-                .ToList();
+            // check the list of currently active orders, if the current trade is ours we are either a maker or a taker
+            var currentOrder = CachedOrderIDs
+                .FirstOrDefault(o => o.Value.BrokerId.Contains(message.MakerOrderId) || o.Value.BrokerId.Contains(message.TakerOrderId));
 
-            var symbol = ConvertProductId(message.ProductId);
-
-            if (cached.Count == 0)
+            if (_pendingGdaxMarketOrderId != null &&
+                // order fill for other users
+                (currentOrder.Value == null ||
+                // order fill for other order of ours (less likely but may happen)
+                currentOrder.Value.BrokerId[0] != _pendingGdaxMarketOrderId))
             {
+                // process all fills for our pending market order
+                var fills = FillSplit[_pendingLeanMarketOrderId];
+                var fillMessages = fills.Messages;
+
+                for (var i = 0; i < fillMessages.Count; i++)
+                {
+                    var fillMessage = fillMessages[i];
+                    var isFinalFill = i == fillMessages.Count - 1;
+
+                    // emit all order events with OrderStatus.PartiallyFilled except for the last one which has OrderStatus.Filled
+                    EmitFillOrderEvent(fillMessage, fills.Order.Symbol, fills, isFinalFill);
+                }
+
+                // clear the pending market order
+                _pendingGdaxMarketOrderId = null;
+                _pendingLeanMarketOrderId = 0;
+            }
+
+            if (currentOrder.Value == null)
+            {
+                // not our order, nothing else to do here
                 return;
             }
 
             Log.Trace($"GDAXBrokerage.OrderMatch(): Match: {message.ProductId} {data}");
-            var orderId = cached[0].Key;
-            var order = cached[0].Value;
 
-            if (!FillSplit.ContainsKey(orderId))
+            var order = currentOrder.Value;
+
+            if (order.Type == OrderType.Market)
             {
-                FillSplit[orderId] = new GDAXFill(order);
+                // Fill events for this order will be delayed until we receive messages for a different order,
+                // so we can know which is the last fill.
+                // The market order total filled quantity can be less than the total order quantity,
+                // details here: https://github.com/QuantConnect/Lean/issues/1751
+
+                // do not process market order fills immediately, save off the order ids
+                _pendingGdaxMarketOrderId = order.BrokerId[0];
+                _pendingLeanMarketOrderId = order.Id;
             }
 
-            var split = FillSplit[orderId];
+            if (!FillSplit.ContainsKey(order.Id))
+            {
+                FillSplit[order.Id] = new GDAXFill(order);
+            }
+
+            var split = FillSplit[order.Id];
             split.Add(message);
 
-            //is this the total order at once? Is this the last split fill?
-            var status = Math.Abs(message.Size) == Math.Abs(order.Quantity) || Math.Abs(split.OrderQuantity) == Math.Abs(split.TotalQuantity())
-                ? OrderStatus.Filled : OrderStatus.PartiallyFilled;
+            if (order.Type != OrderType.Market)
+            {
+                var symbol = ConvertProductId(message.ProductId);
+
+                // is this the total order at once? Is this the last split fill?
+                var isFinalFill = Math.Abs(message.Size) == Math.Abs(order.Quantity) || Math.Abs(split.OrderQuantity) == Math.Abs(split.TotalQuantity);
+
+                EmitFillOrderEvent(message, symbol, split, isFinalFill);
+            }
+        }
+
+        private void EmitFillOrderEvent(Messages.Matched message, Symbol symbol, GDAXFill split, bool isFinalFill)
+        {
+            var order = split.Order;
+
+            var status = isFinalFill ? OrderStatus.Filled : OrderStatus.PartiallyFilled;
 
             OrderDirection direction;
             // Messages are always from the perspective of the market maker. Flip direction if executed as a taker.
@@ -359,77 +412,24 @@ namespace QuantConnect.Brokerages.GDAX
                 direction = message.Side == "sell" ? OrderDirection.Sell : OrderDirection.Buy;
             }
 
-            decimal totalOrderFee;
-            if (!_orderFees.TryGetValue(orderId, out totalOrderFee))
-            {
-                totalOrderFee = GetFee(order);
-                _orderFees[orderId] = totalOrderFee;
-            }
-
-            // apply order fee on a pro rata basis
-            var orderFee = totalOrderFee * Math.Abs(message.Size) / Math.Abs(order.Quantity);
+            var fillPrice = message.Price;
+            var fillQuantity = direction == OrderDirection.Sell ? -message.Size : message.Size;
+            var isMaker = order.BrokerId[0] == message.MakerOrderId;
+            var orderFee = GetFillFee(symbol, fillPrice, fillQuantity, isMaker);
 
             var orderEvent = new OrderEvent
             (
-                orderId, symbol, message.Time, status,
-                direction,
-                message.Price, direction == OrderDirection.Sell ? -message.Size : message.Size,
+                order.Id, symbol, message.Time, status,
+                direction, fillPrice, fillQuantity,
                 orderFee, $"GDAX Match Event {direction}"
             );
 
-            //if we're filled we won't wait for done event
+            // when the order is completely filled, we no longer need it in the active order list
             if (orderEvent.Status == OrderStatus.Filled)
             {
                 Order outOrder;
-                CachedOrderIDs.TryRemove(orderId, out outOrder);
-
-                decimal outOrderFee;
-                _orderFees.TryRemove(orderId, out outOrderFee);
+                CachedOrderIDs.TryRemove(order.Id, out outOrder);
             }
-
-            OnOrderEvent(orderEvent);
-        }
-
-        private void OrderDone(string data)
-        {
-            Log.Trace($"GDAXBrokerage.Messaging.OrderDone(): Order completed with data {data}");
-            var message = JsonConvert.DeserializeObject<Messages.Done>(data, JsonSettings);
-
-            //if we don't exit now, will result in fill message
-            if (message.Reason == "canceled" || message.RemainingSize > 0)
-            {
-                Log.Trace($"GDAXBrokerage.Messaging.OrderDone(): Order cancelled. Remaining {message.RemainingSize}");
-                return;
-            }
-
-            //is this our order?
-            var cached = CachedOrderIDs.Where(o => o.Value.BrokerId.Contains(message.OrderId)).ToList();
-
-            if (cached.Count == 0 || cached[0].Value.Status == OrderStatus.Filled)
-            {
-                Log.Trace($"GDAXBrokerage.Messaging.OrderDone(): Order could not locate order in cache with order id {message.OrderId}");
-                return;
-            }
-
-            var orderId = cached[0].Key;
-            var order = cached[0].Value;
-
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, -1,
-                $"GDAXWebsocketsBrokerage.OrderDone: Encountered done message prior to match filling order brokerId: {message.OrderId} orderId: {orderId}"));
-
-            var split = FillSplit[orderId];
-
-            //should have already been filled but match message may have been missed. Let's say we've filled now
-            var orderEvent = new OrderEvent
-            (
-                orderId, ConvertProductId(message.ProductId), message.Time, OrderStatus.Filled,
-                message.Side == "sell" ? OrderDirection.Sell : OrderDirection.Buy,
-                message.Price, message.Side == "sell" ? -split.TotalQuantity() : split.TotalQuantity(),
-                GetFee(order), "GDAX Fill Event"
-            );
-
-            Order outOrder;
-            CachedOrderIDs.TryRemove(orderId, out outOrder);
 
             OnOrderEvent(orderEvent);
         }
@@ -462,7 +462,7 @@ namespace QuantConnect.Brokerages.GDAX
         /// <param name="askSize">The ask price</param>
         private void EmitQuoteTick(Symbol symbol, decimal bidPrice, decimal bidSize, decimal askPrice, decimal askSize)
         {
-            lock (_tickLocker)
+            lock (TickLocker)
             {
                 Ticks.Add(new Tick
                 {
@@ -485,7 +485,7 @@ namespace QuantConnect.Brokerages.GDAX
         {
             var symbol = ConvertProductId(message.ProductId);
 
-            lock (_tickLocker)
+            lock (TickLocker)
             {
                 Ticks.Add(new Tick
                 {
@@ -552,7 +552,7 @@ namespace QuantConnect.Brokerages.GDAX
 
             WebSocket.Send(json);
 
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, -1, "GDAXBrokerage.Subscribe: Sent subscribe."));
+            Log.Trace("GDAXBrokerage.Subscribe: Sent subscribe.");
         }
 
         /// <summary>
@@ -565,12 +565,13 @@ namespace QuantConnect.Brokerages.GDAX
             var token = _canceller.Token;
             var listener = Task.Factory.StartNew(() =>
             {
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, -1, $"GDAXBrokerage.PollLatestTick: started polling for ticks: {symbol.Value.ToString()}"));
+                Log.Trace($"GDAXBrokerage.PollLatestTick: started polling for ticks: {symbol.Value}");
+
                 while (true)
                 {
                     var rate = GetConversionRate(symbol.Value.Replace("USD", ""));
 
-                    lock (_tickLocker)
+                    lock (TickLocker)
                     {
                         var latest = new Tick
                         {
@@ -584,7 +585,8 @@ namespace QuantConnect.Brokerages.GDAX
                     Thread.Sleep(delay);
                     if (token.IsCancellationRequested) break;
                 }
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, -1, $"PollLatestTick: stopped polling for ticks: {symbol.Value.ToString()}"));
+
+                Log.Trace($"PollLatestTick: stopped polling for ticks: {symbol.Value}");
             }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
 
@@ -622,6 +624,19 @@ namespace QuantConnect.Brokerages.GDAX
             {
                 WebSocket.Send(JsonConvert.SerializeObject(new {type = "unsubscribe", channels = ChannelNames}));
             }
+        }
+
+        /// <summary>
+        /// Returns the fee paid for a total or partial order fill
+        /// </summary>
+        public static decimal GetFillFee(Symbol symbol, decimal fillPrice, decimal fillQuantity, bool isMaker)
+        {
+            if (isMaker)
+            {
+                return 0;
+            }
+
+            return fillPrice * Math.Abs(fillQuantity) * GDAXFeeModel.TakerFee;
         }
     }
 }

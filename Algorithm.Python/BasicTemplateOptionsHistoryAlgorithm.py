@@ -41,13 +41,19 @@ class BasicTemplateOptionsHistoryAlgorithm(QCAlgorithm):
         self.SetCash(1000000)
 
         option = self.AddOption("GOOG")
-
-        option.PriceModel = OptionPriceModels.CrankNicolsonFD()
+        # add the initial contract filter 
         option.SetFilter(-2,2, timedelta(0), timedelta(180))
 
-        self.SetBenchmark("GOOG")
+        # set the pricing model for Greeks and volatility
+        # find more pricing models https://www.quantconnect.com/lean/documentation/topic27704.html
+        option.PriceModel = OptionPriceModels.CrankNicolsonFD()
+        # set the warm-up period for the pricing model
+        self.SetWarmUp(TimeSpan.FromDays(4))
+        # set the benchmark to be the initial cash
+        self.SetBenchmark(lambda x: 1000000)
 
     def OnData(self,slice):
+        if self.IsWarmingUp: return
         if not self.Portfolio.Invested:
             for chain in slice.OptionChains:
                 volatility = self.Securities[chain.Key.Underlying].VolatilityModel.Volatility
@@ -69,11 +75,11 @@ class BasicTemplateOptionsHistoryAlgorithm(QCAlgorithm):
                     contract.ImpliedVolatility))
 
     def OnSecuritiesChanged(self, changes):
-        if changes == None: return
         for change in changes.AddedSecurities:
-            history = self.History(change.Symbol, 10, Resolution.Hour).sort_index(level='time', ascending=False)[:3]
-
-            for i in range(len(history)):
-                self.Log("History: " + str(history.iloc[i].name[0])
-                        + ": " + str(history.iloc[i].name[1])
-                        + " > " + str(history.iloc[i]['close']))
+            # only print options price
+            if change.Symbol.Value == "GOOG": return
+            history = self.History(change.Symbol, 10, Resolution.Minute).sort_index(level='time', ascending=False)[:3]
+            for index, row in history.iterrows():
+                self.Log("History: " + str(index[3])
+                        + ": " + index[4].strftime("%m/%d/%Y %I:%M:%S %p")
+                        + " > " + str(row.close))

@@ -24,6 +24,7 @@ namespace QuantConnect.Brokerages.GDAX
     /// <summary>
     /// An implementation of <see cref="IDataQueueHandler"/> for GDAX
     /// </summary>
+    [BrokerageFactory(typeof(GDAXBrokerageFactory))]
     public class GDAXDataQueueHandler : GDAXBrokerage, IDataQueueHandler
     {
         /// <summary>
@@ -45,7 +46,7 @@ namespace QuantConnect.Brokerages.GDAX
         /// <returns>IEnumerable list of ticks since the last update.</returns>
         public IEnumerable<BaseData> GetNextTicks()
         {
-            lock (Ticks)
+            lock (TickLocker)
             {
                 var copy = Ticks.ToArray();
                 Ticks.Clear();

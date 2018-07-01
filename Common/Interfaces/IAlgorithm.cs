@@ -46,9 +46,9 @@ namespace QuantConnect.Interfaces
     public interface IAlgorithm
     {
         /// <summary>
-        /// Event fired when an algorithm generates a alpha
+        /// Event fired when an algorithm generates a insight
         /// </summary>
-        event AlgorithmEvent<AlphaCollection> AlphasGenerated;
+        event AlgorithmEvent<GeneratedInsightsCollection> InsightsGenerated;
 
         /// <summary>
         /// Data subscription manager controls the information and subscriptions the algorithms recieves.
@@ -409,6 +409,12 @@ namespace QuantConnect.Interfaces
         void OnFrameworkSecuritiesChanged(SecurityChanges changes);
 
         /// <summary>
+        /// Invoked at the end of every time step. This allows the algorithm
+        /// to process events before advancing to the next time step.
+        /// </summary>
+        void OnEndOfTimeStep();
+
+        /// <summary>
         /// Send debug message
         /// </summary>
         /// <param name="message"></param>
@@ -644,5 +650,11 @@ namespace QuantConnect.Interfaces
         /// </summary>
         /// <param name="futureChainProvider">The future chain provider</param>
         void SetFutureChainProvider(IFutureChainProvider futureChainProvider);
+
+        /// <summary>
+        /// Sets the current slice
+        /// </summary>
+        /// <param name="slice">The Slice object</param>
+        void SetCurrentSlice(Slice slice);
     }
 }

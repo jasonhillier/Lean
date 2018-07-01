@@ -114,7 +114,7 @@ namespace QuantConnect.Securities
                 isSufficient = orderQuantity <= Math.Abs(maximumQuantity);
                 if (!isSufficient)
                 {
-                    reason = $"Your portfolio holds {totalQuantity.Normalize()} {security.QuoteCurrency.Symbol}, {openOrdersReservedQuantity.Normalize()} {security.QuoteCurrency.Symbol} of which are reserved for open orders, but your Buy order is for {order.AbsoluteQuantity.Normalize()} {baseCurrency.BaseCurrencySymbol}. Your order requires a total value of {orderQuantity.Normalize()} {security.QuoteCurrency.Symbol}, but only a total value of {(Math.Abs(maximumQuantity) + holdingsValue).Normalize()} {security.QuoteCurrency.Symbol} is available.";
+                    reason = $"Your portfolio holds {totalQuantity.Normalize()} {security.QuoteCurrency.Symbol}, {openOrdersReservedQuantity.Normalize()} {security.QuoteCurrency.Symbol} of which are reserved for open orders, but your Buy order is for {order.AbsoluteQuantity.Normalize()} {baseCurrency.BaseCurrencySymbol}. Your order requires a total value of {orderQuantity.Normalize()} {security.QuoteCurrency.Symbol}, but only a total value of {Math.Abs(maximumQuantity).Normalize()} {security.QuoteCurrency.Symbol} is available.";
                 }
 
                 return new HasSufficientBuyingPowerForOrderResult(isSufficient, reason);
@@ -174,16 +174,29 @@ namespace QuantConnect.Securities
                 portfolio.CashBook[security.QuoteCurrency.Symbol].Amount,
                 security.QuoteCurrency.Symbol);
 
-            // determine the unit price in terms of the account currency
-            var unitPrice = new MarketOrder(security.Symbol, 1, DateTime.UtcNow).GetValue(security);
-            if (unitPrice == 0)
-            {
-                return new GetMaximumOrderQuantityForTargetValueResult(0, $"The price of the {security.Symbol.Value} security is zero because it does not have any market data yet. When the security price is set this security will be ready for trading.");
-            }
-
             // remove directionality, we'll work in the land of absolutes
             var targetOrderValue = Math.Abs(targetPortfolioValue - baseCurrencyPosition);
             var direction = targetPortfolioValue > baseCurrencyPosition ? OrderDirection.Buy : OrderDirection.Sell;
+
+            // determine the unit price in terms of the account currency
+            var unitPrice = direction == OrderDirection.Buy ? security.AskPrice : security.BidPrice;
+            unitPrice *= security.QuoteCurrency.ConversionRate * security.SymbolProperties.ContractMultiplier;
+
+            if (unitPrice == 0)
+            {
+                if (security.QuoteCurrency.ConversionRate == 0)
+                {
+                    return new GetMaximumOrderQuantityForTargetValueResult(0, $"The internal cash feed required for converting {security.QuoteCurrency.Symbol} to {CashBook.AccountCurrency} does not have any data yet (or market may be closed).");
+                }
+
+                if (security.SymbolProperties.ContractMultiplier == 0)
+                {
+                    return new GetMaximumOrderQuantityForTargetValueResult(0, $"The contract multiplier for the {security.Symbol.Value} security is zero. The symbol properties database may be out of date.");
+                }
+
+                // security.Price == 0
+                return new GetMaximumOrderQuantityForTargetValueResult(0, $"The price of the {security.Symbol.Value} security is zero because it does not have any market data yet. When the security price is set this security will be ready for trading.");
+            }
 
             // calculate the total cash available
             var cashRemaining = direction == OrderDirection.Buy ? quoteCurrencyPosition : baseCurrencyPosition;
@@ -221,7 +234,7 @@ namespace QuantConnect.Securities
 
                 // generate the order
                 var order = new MarketOrder(security.Symbol, orderQuantity, DateTime.UtcNow);
-                orderValue = order.GetValue(security);
+                orderValue = orderQuantity * unitPrice;
                 orderFees = security.FeeModel.GetOrderFee(security, order);
 
                 // find an incremental delta value for the next iteration step

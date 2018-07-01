@@ -16,6 +16,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using Fasterflect;
 using Newtonsoft.Json;
 using QuantConnect.AlgorithmFactory;
 using QuantConnect.Brokerages;
@@ -66,6 +68,7 @@ namespace QuantConnect.Lean.Engine.Setup
 
         // saves ref to algo so we can call quit if runtime error encountered
         private IBrokerageFactory _factory;
+        private IBrokerage _dataQueueHandlerBrokerage;
 
         /// <summary>
         /// Initializes a new BrokerageSetupHandler
@@ -91,7 +94,7 @@ namespace QuantConnect.Lean.Engine.Setup
             // limit load times to 10 seconds and force the assembly to have exactly one derived type
             var loader = new Loader(algorithmNodePacket.Language, TimeSpan.FromSeconds(15), names => names.SingleOrAlgorithmTypeName(Config.Get("algorithm-type-name")));
             var complete = loader.TryCreateAlgorithmInstanceWithIsolator(assemblyPath, algorithmNodePacket.RamAllocation, out algorithm, out error);
-            if (!complete) throw new Exception(error + " Try re-building algorithm and remove duplicate QCAlgorithm base classes.");
+            if (!complete) throw new AlgorithmSetupException($"During the algorithm initialization, the following exception has occurred: {error}");
 
             return algorithm;
         }
@@ -114,6 +117,8 @@ namespace QuantConnect.Lean.Engine.Setup
             // find the correct brokerage factory based on the specified brokerage in the live job packet
             _factory = Composer.Instance.Single<IBrokerageFactory>(brokerageFactory => brokerageFactory.BrokerageType.MatchesTypeName(liveJob.Brokerage));
             factory = _factory;
+
+            PreloadDataQueueHandler(liveJob, uninitializedAlgorithm, factory);
 
             // initialize the correct brokerage using the resolved factory
             var brokerage = _factory.CreateBrokerage(liveJob, uninitializedAlgorithm);
@@ -209,6 +214,10 @@ namespace QuantConnect.Lean.Engine.Setup
 
                         //Initialise the algorithm, get the required data:
                         algorithm.Initialize();
+
+                        //Finalize Initialization
+                        algorithm.PostInitialize();
+
                         if (liveJob.Brokerage != "PaperBrokerage")
                         {
                             //Zero the CashBook - we'll populate directly from brokerage
@@ -353,8 +362,6 @@ namespace QuantConnect.Lean.Engine.Setup
                     return false;
                 }
 
-                algorithm.PostInitialize();
-
                 //Set the starting portfolio value for the strategy to calculate performance:
                 StartingPortfolioValue = algorithm.Portfolio.TotalPortfolioValue;
                 StartingDate = DateTime.Now;
@@ -391,8 +398,7 @@ namespace QuantConnect.Lean.Engine.Setup
                 Log.Trace("BrokerageSetupHandler.Setup(): Has open order: " + order.Symbol.Value + " - " + order.Quantity);
                 resultHandler.DebugMessage($"BrokerageSetupHandler.Setup(): Open order detected.  Creating order tickets for open order {order.Symbol.Value} with quantity {order.Quantity}. Beware that this order ticket may not accurately reflect the quantity of the order if the open order is partially filled.");
                 order.Id = algorithm.Transactions.GetIncrementOrderId();
-                transactionHandler.Orders.AddOrUpdate(order.Id, order, (i, o) => order);
-                transactionHandler.OrderTickets.AddOrUpdate(order.Id, order.ToOrderTicket(algorithm.Transactions));
+                transactionHandler.AddOpenOrder(order, order.ToOrderTicket(algorithm.Transactions));
             }
         }
 
@@ -421,7 +427,7 @@ namespace QuantConnect.Lean.Engine.Setup
         /// <param name="inner">The inner exception being wrapped</param>
         private void AddInitializationError(string message, Exception inner = null)
         {
-            Errors.Add(new AlgorithmSetupException("Failed to initialize algorithm: " + message, inner));
+            Errors.Add(new AlgorithmSetupException("During the algorithm initialization, the following exception has occurred: " + message, inner));
         }
 
         /// <summary>
@@ -430,9 +436,52 @@ namespace QuantConnect.Lean.Engine.Setup
         /// <filterpriority>2</filterpriority>
         public void Dispose()
         {
-            if (_factory != null)
+            _factory?.DisposeSafely();
+
+            if (_dataQueueHandlerBrokerage != null)
             {
-                _factory.Dispose();
+                if (_dataQueueHandlerBrokerage.IsConnected)
+                {
+                    _dataQueueHandlerBrokerage.Disconnect();
+                }
+                _dataQueueHandlerBrokerage.DisposeSafely();
+            }
+        }
+
+        private void PreloadDataQueueHandler(LiveNodePacket liveJob, IAlgorithm algorithm, IBrokerageFactory factory)
+        {
+            // preload the data queue handler using custom BrokerageFactory attribute
+            var dataQueueHandlerType = Assembly.GetAssembly(typeof(Brokerage))
+                .GetTypes()
+                .FirstOrDefault(x =>
+                    x.FullName != null &&
+                    x.FullName.EndsWith(liveJob.DataQueueHandler) &&
+                    x.HasAttribute(typeof(BrokerageFactoryAttribute)));
+
+            if (dataQueueHandlerType != null)
+            {
+                var attribute = dataQueueHandlerType.GetCustomAttribute<BrokerageFactoryAttribute>();
+
+                // only load the data queue handler if the factory is different from our brokerage factory
+                if (attribute.Type != factory.GetType())
+                {
+                    var brokerageFactory = (BrokerageFactory)Activator.CreateInstance(attribute.Type);
+
+                    // copy the brokerage data (usually credentials)
+                    foreach (var kvp in brokerageFactory.BrokerageData)
+                    {
+                        if (!liveJob.BrokerageData.ContainsKey(kvp.Key))
+                        {
+                            liveJob.BrokerageData.Add(kvp.Key, kvp.Value);
+                        }
+                    }
+
+                    // create the data queue handler and add it to composer
+                    _dataQueueHandlerBrokerage = brokerageFactory.CreateBrokerage(liveJob, algorithm);
+
+                    // open connection for subscriptions
+                    _dataQueueHandlerBrokerage.Connect();
+                }
             }
         }
     }

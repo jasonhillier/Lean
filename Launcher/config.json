@@ -6,7 +6,7 @@
 	// two predefined environments, 'backtesting' and 'live', feel free
 	// to add more!
 
-	"environment": "backtesting", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
+	"environment": "live-tradestation", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
 
 	"debug-mode": false,
 	// algorithm class selector
@@ -28,7 +28,7 @@
 	// handlers
 	"log-handler": "QuantConnect.Logging.CompositeLogHandler",
 	"messaging-handler": "QuantConnect.Messaging.Messaging",
-	"job-queue-handler": "QuantConnect.Queues.AmazonSQSJobQueue",
+	"job-queue-handler": "QuantConnect.Queues.JobQueue",
 	"api-handler": "QuantConnect.Api.Api",
 	"map-file-provider": "QuantConnect.Data.Auxiliary.LocalDiskMapFileProvider",
 	"factor-file-provider": "QuantConnect.Data.Auxiliary.LocalDiskFactorFileProvider",
@@ -38,9 +38,9 @@
 	"aws-id": "zzz",
 	"aws-key": "zzz",
 	"es-index": "backtests",
-	"es-user": "data",
-	"es-pwd": "data*123",
-	"es-server": "http://es.hillier.us",
+	"es-user": "none",
+	"es-pwd": "none",
+	"es-server": "none",
 
 	// limits on number of symbols to allow
 	"symbol-minute-limit": 100000,
@@ -83,8 +83,9 @@
 	"tradier-refresh-session": true,
 
 	// tradestation configuration
-	"tradestation-account-id": "17523411",
-	"tradestation-access-token": "enRqbmxyWTV4azRCVGdaT1gxdnJwYzRzRFhFamo1V0IyTnZwUzdQenhxMHRPTERRN3o1Rjk5QnhMbElkNXY4NXpSNm5Ea1pLMGZyZEREY0YxOE1pZm9OTEI0bUxQWWc2L0JOR3VPakRwUjNqUlkrOS8raTMyWnl1WDE1Nm10M3R2aHhKT00vTXNtWk9IV2psY3pXSTNlNTlPd0FJbm1XbFA4U2VCclFkYkg5WXdPNThyY1NFdlZISzhDa3Q2ZEJJYTZxRGVod202SUFHd3ZvVW1FSHBZWWxnUXU5ZzBvTWdDb0s1TFZURGQ4VngzWHYxdVFFUEhqSnZEelk3SUNTVnNncll0dTFLNmlLV0U3YnRJcDVFdzQ1bENKUFZwa1ZJZDZ4UFFJMDJ0d2pURk1pU0VwaTR5WDNITEpNcENmOGRjcmFaUzcxYzVJTHFEWlloaW82eDhVREs3eTIxMHoyTTkrTklBNHV5bmc2dnIvOHN1emxVZHFSNkFxVitzZ3lGd0NGQkdzUUZsSnIzN2NHVzFwK3piMjVzY0J0cnJidFZ3WThmZjdDZkVTenBTR1B4UEZKOWxYQWJFMHkrWTBxZ1ZlZHJvOFdkeWkwYXo4SmRtNnp0WjBTeFFRTzVyTHZaajN0LzUvTG5Ua2lvWEFFSzRFUmJkVHdKUmliQVJ3QkU=",
+	"tradestation-simulation": true,
+	"tradestation-account-id": "-",
+	"tradestation-access-token": "-=",
 
 	// oanda configuration
 	"oanda-environment": "Practice",
@@ -159,6 +160,20 @@
 			"data-queue-handler": "QuantConnect.Lean.Engine.DataFeeds.Queues.LiveDataQueue",
 			"real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
 			"transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BacktestingTransactionHandler"
+		},
+
+		"live-tradestation": {
+			"live-mode": true,
+
+			// real brokerage implementations require the BrokerageTransactionHandler
+			"live-mode-brokerage": "TradeStationBrokerage",
+			"data-queue-handler": "TradeStationBrokerage",
+
+			"setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+			"result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+			"data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+			"real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+			"transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler"
 		},
 
 		// defines the 'live-tradier' environment

@@ -381,7 +381,10 @@ namespace QuantConnect.Brokerages.TradeStation
                     {
                         yield return tsd;
                     }
-                }
+
+					//no need to rail the cpu doing this
+					Thread.Sleep(10);
+				}
             }
         }
 

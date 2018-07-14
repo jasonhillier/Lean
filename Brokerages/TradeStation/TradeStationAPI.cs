@@ -15047,6 +15047,8 @@ namespace QuantConnect.Brokerages.TradeStation
         [System.Runtime.Serialization.EnumMember(Value = "F")]
         F = 3,
 
+        [System.Runtime.Serialization.EnumMember(Value = "X")]
+        X = 3
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]

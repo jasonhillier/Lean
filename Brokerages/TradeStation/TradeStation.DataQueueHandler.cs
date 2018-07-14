@@ -325,8 +325,8 @@ namespace QuantConnect.Brokerages.TradeStation
                 var serializer = new JsonSerializer();
                 jsonReader.SupportMultipleContent = true;
 
-                // keep going until we fail to read more from the stream
-                while (true)
+                // keep going until stream gets closed
+                while (!sr.EndOfStream)
                 {
 					bool successfulRead = false;
                     try
@@ -341,20 +341,39 @@ namespace QuantConnect.Brokerages.TradeStation
 
                     if (!successfulRead)
                     {
-						// if we couldn't get a successful read just end the enumerable
-						yield break;
+                        // if we couldn't get a successful read just keep trying
+                        continue;
                     }
 
                     //Have a Tradier JSON Object:
                     QuoteStreamDefinition tsd = null;
+                    Anonymous3 z = null;
                     try
                     {
-                        tsd = serializer.Deserialize<QuoteStreamDefinition>(jsonReader);
+                        z = serializer.Deserialize<Anonymous3>(jsonReader);
+                        if (z!=null)
+                        {
+                            Log.Trace("got snapshot from stream");
+                        }
                     }
                     catch (Exception err)
                     {
                         // Do nothing for now. Can come back later to fix. Errors are from Tradier not properly json encoding values E.g. "NaN" string.
-                        Log.Trace("TradeStation.DataQueueHandler.Stream(): json deserialization error: " + err.Message);
+                        Log.Trace("TradeStation.DataQueueHandler.Stream(): z json deserialization error: " + err.Message);
+                    }
+
+                    try
+                    {
+                        tsd = serializer.Deserialize<QuoteStreamDefinition>(jsonReader);
+                        if (tsd != null)
+                        {
+                            Log.Trace("got quote change from stream");
+                        }
+                    }
+                    catch (Exception err)
+                    {
+                        // Do nothing for now. Can come back later to fix. Errors are from Tradier not properly json encoding values E.g. "NaN" string.
+                        Log.Error("TradeStation.DataQueueHandler.Stream(): json deserialization error: " + err.Message);
                     }
 
                     // don't yield garbage, just wait for the next one

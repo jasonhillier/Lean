@@ -30,6 +30,8 @@ namespace QuantConnect.Algorithm.CSharp
 			_ItmDepth = itmDepth;
 			_MinDaysRemaining = minDaysRemaining;
 
+            this.LastPurchasedStrike = 0;
+
 			Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
 
             // set our strike/expiry filter for this option chain
@@ -42,7 +44,7 @@ namespace QuantConnect.Algorithm.CSharp
             _Algo.Debug(String.Format(Text, args));
         }
 
-        public bool MarketBuyOptions(List<OptionContract> Contracts, int OverrideQuantity = 0)
+        public virtual bool MarketBuyOptions(List<OptionContract> Contracts, int OverrideQuantity = 0)
         {
 			if (Contracts == null || Contracts.Count == 0)
                 return false;
@@ -68,14 +70,40 @@ namespace QuantConnect.Algorithm.CSharp
 			return true;
         }
 
+        public decimal GetSpreadSinceLastPurchase(Slice slice)
+        {
+            if (this.LastPurchasedStrike > 0)
+            {
+                var options = GetNextTierOptions(slice);
+                if (options.Count > 0)
+                {
+                    var anOption = options.FirstOrDefault();
+                    if (anOption.Right == OptionRight.Put)
+                    {
+                        return this.LastPurchasedStrike - anOption.Strike;
+                    }
+                    else
+                    {
+                        return anOption.Strike - this.LastPurchasedStrike;
+                    }
+                }
+            }
+
+            return 0;
+        }
+
         public bool MarketBuyNextTierOptions(Slice slice)
         {
             List<OptionContract> contracts = GetNextTierOptions(slice);
+            if (contracts.Count > 0)
+            {
+                this.LastPurchasedStrike = contracts[0].Strike;
+            }
 
             return MarketBuyOptions(contracts);
         }
 
-        public virtual List<OptionContract> GetNextTierOptions(Slice slice)
+        public List<OptionContract> GetNextTierOptions(Slice slice)
         {
             List<OptionContract> contracts = new List<OptionContract>();
             if (!_Algo.IsMarketOpen(_OptionSymbol.Underlying) ||
@@ -100,7 +128,7 @@ namespace QuantConnect.Algorithm.CSharp
 			//TODO: make 'tier' definition customizable
 			var itmContracts = Chain
 				.Where(x => x.Right == OptionRight.Put)
-				.Where(x => (x.Strike - Chain.Underlying.Price) > 0)
+                .Where(x => x.IsITM(Chain))
 				.Where(x=>(x.Expiry - x.Time).TotalDays >= _MinDaysRemaining)
 				.OrderBy(x => x.Expiry)
 				.ThenBy(x => x.Strike - Chain.Underlying.Price).ToList();
@@ -248,6 +276,8 @@ namespace QuantConnect.Algorithm.CSharp
 			return _Algo.MarketOrder(position.Holdings.Symbol, -position.Holdings.Quantity);
 		}
 
+        public decimal LastPurchasedStrike { get; protected set; }
+
         public bool IsInvested()
         {
             return (this.InvestedTiers() > 0);
@@ -302,5 +332,32 @@ namespace QuantConnect.Algorithm.CSharp
 			public int RolloverContracts { get; set; }
 			public int ExpiryCloseCounter { get; set; }
 		}
+    }
+
+    public static class ExtensionMethods
+    {
+        public static bool IsOTM(this OptionContract pContract, OptionChain pChain)
+        {
+            return IsOTM(pContract, pChain.Underlying.Price);
+        }
+
+        public static bool IsOTM(this OptionContract pContract, decimal pUnderlyingPrice)
+        {
+            if (pContract.Right == OptionRight.Put)
+            {
+                return (pContract.Strike - pUnderlyingPrice) > 0;
+            }
+            else if (pContract.Right == OptionRight.Call)
+            {
+                return (pContract.Strike - pUnderlyingPrice) < 0;
+            }
+
+            return false;
+        }
+
+        public static bool IsITM(this OptionContract pContract, OptionChain pChain)
+        {
+            return !IsOTM(pContract, pChain);
+        }
     }
 }

@@ -39,7 +39,8 @@ namespace QuantConnect.Algorithm.CSharp
                      _Option.Underlying.Symbol,
                      _Option.Underlying.Price
                     );
-                _Algo.MarketOrder(contract.Symbol, quantity);
+                //we short the option, then cover with underlying
+                _Algo.MarketOrder(contract.Symbol, -quantity);
             });
 
             //if doing covered calls, market buy underlying

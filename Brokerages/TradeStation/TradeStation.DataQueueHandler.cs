@@ -248,7 +248,7 @@ namespace QuantConnect.Brokerages.TradeStation
             return new Tick
             {
                 Exchange = tsd.Exchange,
-                TickType = tsd.Volume == 0 ? TickType.Quote : TickType.Trade,
+                TickType = symbol.ID.SecurityType == SecurityType.Option ? TickType.Quote : TickType.Trade,
                 Quantity = (int)tsd.Volume,
                 Time = tsd.TradeTime,
                 EndTime = tsd.TradeTime,

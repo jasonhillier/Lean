@@ -112,7 +112,9 @@ namespace QuantConnect.Brokerages.TradeStation
 				var exchangeHours = MarketHoursDatabase.FromDataFolder()
 							.GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType);
 
-				if (exchangeHours.IsOpen(DateTime.Now, false))
+				var now = DateTime.UtcNow.ConvertFromUtc(exchangeHours.TimeZone);
+
+				if (exchangeHours.IsOpen(now, false))
 					return true;
 			}
 

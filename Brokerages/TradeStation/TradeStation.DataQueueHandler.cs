@@ -23,6 +23,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NodaTime;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
@@ -58,7 +59,7 @@ namespace QuantConnect.Brokerages.TradeStation
             {
                 if (_subscriptions.IsEmpty)
                 {
-                    Thread.Sleep(10);
+                    Thread.Sleep(100);
                     continue;
                 }
 
@@ -67,9 +68,24 @@ namespace QuantConnect.Brokerages.TradeStation
                 {
                     var stream = Stream();
                     pipe = stream.GetEnumerator();
-                    pipe.MoveNext();
-                    _refresh = false;
                 }
+
+				if (pipe != null && !pipe.MoveNext())
+				{
+					//if we ran out, we need to restart the stream
+					_refresh = true;
+
+					if (this.IsMarketHoursForSymbols(_subscriptions.Keys))
+					{
+						//to avoid spamming the server if it is rejecting us, then
+						Thread.Sleep(10000);
+					}
+					else
+					{
+						Log.Trace("Market is closed, will reconnect in 30 mins.");
+						Thread.Sleep(30 * 60 * 1000);
+					}
+				}
 
                 if (pipe != null && pipe.Current != null)
                 {
@@ -80,14 +96,6 @@ namespace QuantConnect.Brokerages.TradeStation
                     {
                         yield return tick;
                     }
-
-                    if (!pipe.MoveNext())
-					{
-						//if we ran out, we need to restart the stream
-						_refresh = true;
-						//to avoid spamming the server if it is rejecting us, then
-						Thread.Sleep(10000);
-					}
                 }
 
             } while (_isConnected);
@@ -167,7 +175,11 @@ namespace QuantConnect.Brokerages.TradeStation
 				}
                 else if (symbol.ID.SecurityType == SecurityType.Option && symbol.IsCanonical())
                 {
-                    if (_subscriptions.TryAdd(symbol.Underlying, symbol.Underlying.Value))
+					//lookup all the option symbols
+					var optionSymbols = this.LookupSymbols(symbol);
+					_optionList[symbol.Underlying] = new List<Symbol>(optionSymbols);
+
+					if (_subscriptions.TryAdd(symbol, symbol.Value))
                     {
                         Refresh();
                     }
@@ -204,7 +216,7 @@ namespace QuantConnect.Brokerages.TradeStation
             {
                 _refresh = true;
                 Log.Trace("TradeStationBrokerage.DataQueueHandler.Refresh(): Updating tickers..." + string.Join(",", _subscriptions.Select(x => x.Value)));
-                //CloseStream();
+                CloseStream();
                 _refreshDelay.Stop();
             };
             _refreshDelay.Start();
@@ -260,19 +272,19 @@ namespace QuantConnect.Brokerages.TradeStation
             var request = new RestRequest("markets/events/session", Method.POST);
             return Execute<TradierStreamSession>(request, TradierApiRequestType.Data, "stream");
         }
+		*/
 
         /// <summary>
         /// Close the current stream async
         /// </summary>
         private void CloseStream()
         {
-            if (_tradierStream != null)
+            if (_tradestationStream != null)
             {
                 Log.Trace("TradestationBrokerage.DataQueueHandler.CloseStream(): Closing stream socket...");
-                _tradierStream.Close();
-            }
+				_refresh = true;
+			}
         }
-        */
 
         /// <summary>
         /// Connect to tradier API strea:
@@ -282,6 +294,12 @@ namespace QuantConnect.Brokerages.TradeStation
 
         private IEnumerable<QuoteStreamDefinition> Stream()
         {
+			_refresh = false;
+
+			//Tradestation will send a full quote first, then only changes. We need to keep track of the full one,
+			// and merge in the changed one.
+			var activeQuotes = new Dictionary<string, QuoteStreamDefinition>();
+			//Gather together all the symbols we want to subscribe to
 			var symbols = new List<string>();
 			foreach(var sub in _subscriptions)
 			{
@@ -291,7 +309,11 @@ namespace QuantConnect.Brokerages.TradeStation
 				}
 				if (sub.Key.SecurityType == SecurityType.Option)
 				{
-					foreach(var option in _optionList[sub.Key])
+					if (!_optionList.ContainsKey(sub.Key.Underlying))
+					{
+						throw new Exception("[TradeStation.DataQueueHandler.Stream] No option contract list was subscribed for " + sub.Key.Underlying.Value);
+					}
+					foreach(var option in _optionList[sub.Key.Underlying])
 					{
 						var name = _optionNameResolver.SingleOrDefault(x => x.Value == option).Key;
 						symbols.Add(name);
@@ -316,41 +338,52 @@ namespace QuantConnect.Brokerages.TradeStation
             _tradestationStream = response.GetResponseStream();
             if (_tradestationStream == null)
             {
-                yield break;
+				Log.Error("TradeStation.DataQueueHandler.Stream(): Null stream error!");
+				yield break;
             }
 
             using (var sr = new StreamReader(_tradestationStream))
             using (var jsonReader = new JsonTextReader(sr))
             {
-                var serializer = new JsonSerializer();
                 jsonReader.SupportMultipleContent = true;
 
                 // keep going until stream gets closed
-                while (!sr.EndOfStream)
+                while (!_refresh)
                 {
-					bool successfulRead = false;
-                    try
+					JToken token = null;
+
+					try
                     {
+						if (!_tradestationStream.CanRead)
+							yield break; //stream closed down, exit normally
+
                         //Read the jsonSocket in a safe manner: might close and so need handlers, but can't put handlers around a yield.
-                        successfulRead = jsonReader.Read();
-                    }
+                        jsonReader.Read();
+						if (jsonReader.TokenType != JsonToken.StartObject)
+							continue; //bad json or we're parsing in the wrong place somehow, just move along...
+						
+						token = JToken.Load(jsonReader);
+					}
                     catch (Exception err)
                     {
-                        Log.Trace("TradeStation.DataQueueHandler.Stream(): Handled breakout / socket close from jsonRead operation: " + err.Message);
+                        Log.Trace("TradeStation.DataQueueHandler.Stream(): Stream read error: " + err.Message);
 					}
 
-                    if (!successfulRead)
+                    if (token == null)
                     {
-                        // if we couldn't get a successful read just keep trying
-                        continue;
+						// if we couldn't get a successful read, abort this session
+						yield break;
                     }
 
-                    //Have a Tradier JSON Object:
-                    QuoteStreamDefinition tsd = null;
+					//after the first read, we set a high timeout on the socket, the server can keep it open as long as it wants.
+					_tradestationStream.ReadTimeout = 15 * 60 * 1000; //15mins
+
+					//now deserialize it for processing
+					/*
                     Anonymous3 z = null;
                     try
                     {
-                        z = serializer.Deserialize<Anonymous3>(jsonReader);
+						z = token.ToObject<Anonymous3>();
                         if (z!=null)
                         {
                             Log.Trace("got snapshot from stream");
@@ -361,13 +394,15 @@ namespace QuantConnect.Brokerages.TradeStation
                         // Do nothing for now. Can come back later to fix. Errors are from Tradier not properly json encoding values E.g. "NaN" string.
                         Log.Trace("TradeStation.DataQueueHandler.Stream(): z json deserialization error: " + err.Message);
                     }
+					*/
 
-                    try
+					QuoteStreamDefinition tsd = null;
+					try
                     {
-                        tsd = serializer.Deserialize<QuoteStreamDefinition>(jsonReader);
+                        tsd = token.ToObject<QuoteStreamDefinition>();
                         if (tsd != null)
                         {
-                            Log.Trace("got quote change from stream");
+							Log.Debug("TradeStation.DataQueueHandler.Stream(): got quote: " + token.ToString());
                         }
                     }
                     catch (Exception err)
@@ -379,6 +414,14 @@ namespace QuantConnect.Brokerages.TradeStation
                     // don't yield garbage, just wait for the next one
                     if (tsd != null)
                     {
+						if (!activeQuotes.ContainsKey(tsd.Symbol))
+						{
+							activeQuotes[tsd.Symbol] = tsd;
+						}
+						else
+						{
+							mergeQuote(activeQuotes[tsd.Symbol], tsd);
+						}
                         yield return tsd;
                     }
 
@@ -388,6 +431,19 @@ namespace QuantConnect.Brokerages.TradeStation
             }
         }
 
-        #endregion
-    }
+		private void mergeQuote(QuoteStreamDefinition source, QuoteStreamDefinition target)
+		{
+			//we only care about the things needed to create a valid 'Tick' object
+			target.Exchange = target.Exchange != null	? target.Exchange : source.Exchange;
+			target.Volume = target.Volume != null		? target.Volume : 0;
+			target.TradeTime = target.TradeTime > DateTime.MinValue ? target.TradeTime : source.TradeTime;
+			target.Last = target.Last != null			? target.Last : source.Last;
+			target.Ask = target.Ask != null				? target.Ask : source.Ask;
+			target.AskSize = target.AskSize != null		? target.AskSize : source.AskSize;
+			target.Bid = target.Bid != null				? target.Bid : source.Bid;
+			target.BidSize = target.BidSize != null		? target.BidSize : source.BidSize;
+		}
+
+		#endregion
+	}
 }

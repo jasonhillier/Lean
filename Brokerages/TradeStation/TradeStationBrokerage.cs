@@ -105,6 +105,20 @@ namespace QuantConnect.Brokerages.TradeStation
             //_cachedOpenOrdersByTradierOrderID = new ConcurrentDictionary<long, TradierCachedOpenOrder>();
         }
 
+		bool IsMarketHoursForSymbols(IEnumerable<Symbol> symbols)
+		{
+			foreach(var symbol in symbols)
+			{
+				var exchangeHours = MarketHoursDatabase.FromDataFolder()
+							.GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType);
+
+				if (exchangeHours.IsOpen(DateTime.Now, false))
+					return true;
+			}
+
+			return false; //nothing is open
+		}
+
         #region IBrokerage implementation
 
         /// <summary>

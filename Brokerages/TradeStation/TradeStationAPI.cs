@@ -14475,7 +14475,10 @@ namespace QuantConnect.Brokerages.TradeStation
         [System.Runtime.Serialization.EnumMember(Value = "UNKNOWN")]
         UNKNOWN = 4,
 
-    }
+		[System.Runtime.Serialization.EnumMember(Value = "STOCKOPTION")]
+		STOCKOPTION = 5
+
+	}
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
     public enum Currency3

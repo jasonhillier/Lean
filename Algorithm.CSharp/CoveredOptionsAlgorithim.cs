@@ -110,6 +110,11 @@ namespace QuantConnect.Algorithm.CSharp
 		{
 			if (IsMarketOpen(Underlying) && _lastSlice != null)
 			{
+                foreach(var kvp in _lastSlice)
+                {
+                    Log(String.Format("QUOTE {0}={1}", kvp.Key.ToString(), kvp.Value.Price));
+                }
+
                 if (!_Strategy.IsInvested())
 				{
 					_Strategy.MarketBuyNextTierOptions(_lastSlice);

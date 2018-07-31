@@ -29,6 +29,7 @@ using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Logging;
 using QuantConnect.Packets;
+using QuantConnect.Securities;
 using RestSharp;
 using Timer = System.Timers.Timer;
 
@@ -153,6 +154,24 @@ namespace QuantConnect.Brokerages.TradeStation
 				symbolsList.Add(symbol);
 			}
 
+            if (lookupSymbol.SecurityType == SecurityType.Option && _algorithim != null)
+            {
+                /*
+                var symbolCompareList = _algorithim.OptionChainProvider.GetOptionContractList(lookupSymbol.Underlying, DateTime.Today).ToList();
+                //print out comparison between OSC list and broker list
+                Console.WriteLine("==== OSC ====");
+                symbolCompareList.ForEach((sym) =>
+                {
+                    Console.WriteLine(sym.ToString());
+                });
+                Console.WriteLine("==== TradeStation ====");
+                symbolsList.ForEach((sym) =>
+                {
+                    Console.WriteLine(sym.ToString());
+                });
+                */
+            }
+
 			return symbolsList;
 		}
 
@@ -242,10 +261,12 @@ namespace QuantConnect.Brokerages.TradeStation
 				Log.Trace("TradeStation.DataQueueHandler.Stream(): Not subscribed to symbol " + tsd.Symbol);
 				return null;
 			}
-			//this is bad/useless data
-			if (tsd.TradeTime == DateTime.MinValue) return null;
+            //this is bad/useless data
+            //if (tsd.TradeTime == DateTime.MinValue) return null;
+            //TODO: hack fix
+            tsd.TradeTime = GetRealTimeTickTime(symbol);
 
-            return new Tick
+            var tick = new Tick
             {
                 Exchange = tsd.Exchange,
                 TickType = symbol.ID.SecurityType == SecurityType.Option ? TickType.Quote : TickType.Trade,
@@ -253,7 +274,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 Time = tsd.TradeTime,
                 EndTime = tsd.TradeTime,
                 Symbol = symbol,
-                DataType = MarketDataType.Tick,
+                //DataType = MarketDataType.Tick,
                 Suspicious = false,
                 Value = (decimal)tsd.Last,
 				AskPrice = (decimal)tsd.Ask,
@@ -261,6 +282,34 @@ namespace QuantConnect.Brokerages.TradeStation
 				BidPrice = (decimal)tsd.Bid,
 				BidSize = (decimal)tsd.BidSize
             };
+
+            /*
+            if (tick.TickType == TickType.Quote)
+            {
+                Console.WriteLine("got option quote: {0}\t= {1}, {2}", tick.Symbol.ToString(), tick.Value, tick.Time);
+            }
+            */
+
+            return tick;
+        }
+
+        private DateTime GetRealTimeTickTime(Symbol symbol)
+        {
+            DateTimeZone exchangeTimeZone = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType).TimeZone;
+            return DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone);
+            /*
+            var time = DateTime.UtcNow.Add(_brokerTimeDiff);
+
+            DateTimeZone exchangeTimeZone;
+            if (!_symbolExchangeTimeZones.TryGetValue(symbol, out exchangeTimeZone))
+            {
+                // read the exchange time zone from market-hours-database
+                exchangeTimeZone = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType).TimeZone;
+                _symbolExchangeTimeZones.Add(symbol, exchangeTimeZone);
+            }
+
+            return time.ConvertFromUtc(exchangeTimeZone);
+            */
         }
 
         /*

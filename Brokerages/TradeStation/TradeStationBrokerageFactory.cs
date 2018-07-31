@@ -119,7 +119,7 @@ namespace QuantConnect.Brokerages.TradeStation
             var accessToken = Read<string>(job.BrokerageData, "tradestation-access-token", errors);
             var simulation = Read<bool>(job.BrokerageData, "tradestation-simulation", errors);
 
-            var brokerage = new TradeStationBrokerage(algorithm.Transactions, algorithm.Portfolio, accountID, accessToken, simulation);
+            var brokerage = new TradeStationBrokerage(algorithm.Transactions, algorithm.Portfolio, algorithm, accountID, accessToken, simulation);
 
             //Add the brokerage to the composer to ensure its accessible to the live data feed.
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);

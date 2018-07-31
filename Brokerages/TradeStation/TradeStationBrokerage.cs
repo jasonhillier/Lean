@@ -61,6 +61,7 @@ namespace QuantConnect.Brokerages.TradeStation
         //Endpoints:
         private readonly IOrderProvider _orderProvider;
         private readonly ISecurityProvider _securityProvider;
+        private readonly IAlgorithm _algorithim;
 
         private readonly object _fillLock = new object();
         private readonly DateTime _initializationDateTime = DateTime.Now;
@@ -89,11 +90,12 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <summary>
         /// Create a new Tradier Object:
         /// </summary>
-        public TradeStationBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider, string accountID, string accessToken, bool simulation)
+        public TradeStationBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm, string accountID, string accessToken, bool simulation)
             : base("TradeStation Brokerage")
         {
             _orderProvider = orderProvider;
             _securityProvider = securityProvider;
+            _algorithim = algorithm;
             _accountID = accountID;
             _accountKeys = new List<string>() { accountID };
             _accessToken = accessToken;

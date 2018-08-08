@@ -85,6 +85,7 @@ namespace QuantConnect.Brokerages.TradeStation
 					{
 						Log.Trace("Market is closed, will reconnect in 30 mins.");
 						Thread.Sleep(30 * 60 * 1000);
+                        //Thread.Sleep(10000);
 					}
 				}
 
@@ -93,6 +94,12 @@ namespace QuantConnect.Brokerages.TradeStation
                     var tsd = pipe.Current;
                     //send quotes and trade ticks
                     var tick = CreateTick(tsd);
+                    if (tick != null)
+                    {
+                        yield return tick;
+                    }
+                    //send quotes and trade ticks
+                    tick = CreateDerivativeTick(tsd, SecurityType.Option);
                     if (tick != null)
                     {
                         yield return tick;
@@ -110,22 +117,23 @@ namespace QuantConnect.Brokerages.TradeStation
 
 		public IEnumerable<Symbol> LookupSymbols(Symbol lookupSymbol)
         {
-			string safeName = lookupSymbol.Value.Replace("?", "");
+            string contractName = lookupSymbol.ID.Symbol;
+            Symbol baseEquitySymbol = Symbol.Create(contractName, SecurityType.Equity, Market.USA);
 
 			string criteria = "";
 			switch(lookupSymbol.SecurityType)
 			{
 				case SecurityType.Equity:
-					criteria = "N=" + safeName;
+                    criteria = "N=" + contractName;
 					criteria += "&C=Stock";
 					break;
 				case SecurityType.Option:
-					criteria = "R=" + safeName;
+                    criteria = "R=" + contractName;
 					criteria += "&C=StockOption";
 					criteria += "&Stk=20"; //grab many strikes
 					break;
 				case SecurityType.Future:
-					criteria = "N=" + safeName;
+                    criteria = "N=" + contractName;
 					criteria += "&C=Future";
 					break;
 			}
@@ -138,7 +146,7 @@ namespace QuantConnect.Brokerages.TradeStation
 				if (!string.IsNullOrEmpty(result.OptionType))
 				{
 					symbol = Symbol.CreateOption(
-                        lookupSymbol.Underlying,
+                        baseEquitySymbol,
 						"USA",
 						OptionStyle.American,
 						result.OptionType == "Put" ? OptionRight.Put : OptionRight.Call,
@@ -149,7 +157,7 @@ namespace QuantConnect.Brokerages.TradeStation
 				}
 				else
 				{
-					symbol = Symbol.Create(result.Name, SecurityType.Equity, "USA");
+                    symbol = baseEquitySymbol;
 				}
 				symbolsList.Add(symbol);
 			}
@@ -185,25 +193,14 @@ namespace QuantConnect.Brokerages.TradeStation
             //Add the symbols to the list if they aren't there already.
             foreach (var symbol in symbols.Where(x => !x.Value.Contains("-UNIVERSE-")))
             {
-				if (symbol.ID.SecurityType == SecurityType.Equity)
-				{
-					if (_subscriptions.TryAdd(symbol, symbol.Value))
-					{
-						Refresh();
-					}
-				}
-                else if (symbol.ID.SecurityType == SecurityType.Option && symbol.IsCanonical())
+                if (symbol.ID.SecurityType == SecurityType.Equity ||
+                    symbol.ID.SecurityType == SecurityType.Option)
                 {
-					//lookup all the option symbols
-					var optionSymbols = this.LookupSymbols(symbol);
-					_optionList[symbol.Underlying] = new List<Symbol>(optionSymbols);
-
-					if (_subscriptions.TryAdd(symbol, symbol.Value))
-                    {
-                        Refresh();
-                    }
+                    _subscriptions.TryAdd(symbol, symbol.Value);
                 }
             }
+
+            Refresh();
         }
 
         /// <summary>
@@ -219,9 +216,13 @@ namespace QuantConnect.Brokerages.TradeStation
                 string value;
                 if (_subscriptions.TryRemove(symbol, out value))
                 {
-                    Refresh();
+                    //
                 }
             }
+
+            Log.Trace("TradeStationBrokerage.DataQueueHandler: removed symbols.");
+
+            Refresh();
         }
 
         /// <summary>
@@ -246,19 +247,20 @@ namespace QuantConnect.Brokerages.TradeStation
         /// </summary>
         /// <param name="tsd">Tradier stream data obejct</param>
         /// <returns>LEAN Tick object</returns>
-
         private Tick CreateTick(QuoteStreamDefinition tsd)
         {
+            return CreateDerivativeTick(tsd, SecurityType.Equity);
+        }
+
+        private Tick CreateDerivativeTick(QuoteStreamDefinition tsd, SecurityType derivativeType = SecurityType.Equity)
+        {
 			Symbol symbol;
-			if (!_optionNameResolver.TryGetValue(tsd.Symbol, out symbol))
-			{
-				symbol = _subscriptions.FirstOrDefault(x => x.Value == tsd.Symbol).Key;
-			}
+            symbol = _subscriptions.FirstOrDefault(x => x.Key.ID.Symbol == tsd.Symbol && x.Key.SecurityType == derivativeType).Key;
 
 			// Not subscribed to this symbol.
 			if (symbol == null)
 			{
-				Log.Trace("TradeStation.DataQueueHandler.Stream(): Not subscribed to symbol " + tsd.Symbol);
+				//Log.Trace("TradeStation.DataQueueHandler.Stream(): Not subscribed to symbol " + tsd.Symbol);
 				return null;
 			}
             //this is bad/useless data
@@ -349,46 +351,40 @@ namespace QuantConnect.Brokerages.TradeStation
 			// and merge in the changed one.
 			var activeQuotes = new Dictionary<string, QuoteStreamDefinition>();
 			//Gather together all the symbols we want to subscribe to
-			var symbols = new List<string>();
+            var symbols = new HashSet<string>();
 			foreach(var sub in _subscriptions)
-			{
-				if (sub.Key.SecurityType == SecurityType.Equity)
-				{
-					symbols.Add(sub.Key.Value);
-				}
-				if (sub.Key.SecurityType == SecurityType.Option)
-				{
-					if (!_optionList.ContainsKey(sub.Key.Underlying))
-					{
-						throw new Exception("[TradeStation.DataQueueHandler.Stream] No option contract list was subscribed for " + sub.Key.Underlying.Value);
-					}
-					foreach(var option in _optionList[sub.Key.Underlying])
-					{
-						var name = _optionNameResolver.SingleOrDefault(x => x.Value == option).Key;
-						symbols.Add(name);
-					}
-				}
+            {
+                if (!sub.Value.StartsWith("?")) //ignore the derivative-aliased ones
+                    symbols.Add(sub.Value);
 			}
 			var symbolJoined = String.Join(",", symbols);
 
+            Log.Trace("TradeStation.Stream(): Creating new session, Reading Stream... (" + symbols.Count + " tickers)", true);
 			HttpWebRequest request;
             request = (HttpWebRequest)WebRequest.Create(String.Format("{0}/stream/quote/changes/{1}?access_token={2}", _tradeStationClient.BaseUrl, symbolJoined, _accessToken));
             request.Accept = "application/vnd.tradestation.streams+json";
 
             //Get response as a stream:
-            Log.Trace("TradeStation.Stream(): Session Created, Reading Stream...", true);
-            var response = (HttpWebResponse)request.GetResponse();
-			if (response.StatusCode == HttpStatusCode.Unauthorized)
-			{
-				Log.Trace("TradeStation.DataQueueHandler.Stream(): Unauthroized request! Disconnecting from stream...");
-				_isConnected = false;
-				yield break;
-			}
-            _tradestationStream = response.GetResponseStream();
-            if (_tradestationStream == null)
+            try
             {
-				Log.Error("TradeStation.DataQueueHandler.Stream(): Null stream error!");
-				yield break;
+                var response = (HttpWebResponse)request.GetResponse();
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    Log.Trace("TradeStation.DataQueueHandler.Stream(): Unauthroized request! Disconnecting from stream...");
+                    _isConnected = false;
+                    yield break;
+                }
+                _tradestationStream = response.GetResponseStream();
+                if (_tradestationStream == null)
+                {
+                    Log.Error("TradeStation.DataQueueHandler.Stream(): Null stream error!");
+                    yield break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("TradeStation.DataQueueHandler.Stream(): Error establishing connection: " + ex.Message);
+                yield break;
             }
 
             using (var sr = new StreamReader(_tradestationStream))

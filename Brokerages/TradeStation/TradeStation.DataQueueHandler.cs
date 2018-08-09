@@ -46,7 +46,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private Timer _refreshDelay = new Timer();
         private readonly ConcurrentDictionary<Symbol, string> _subscriptions = new ConcurrentDictionary<Symbol, string>();
 		private Dictionary<Symbol, List<Symbol>> _optionList = new Dictionary<Symbol, List<Symbol>>();
-		private Dictionary<string, Symbol> _optionNameResolver = new Dictionary<string, Symbol>();
+		private Dictionary<Symbol, string> _optionNameResolver = new Dictionary<Symbol, string>();
 		private Stream _tradestationStream;
 
         /// <summary>
@@ -153,7 +153,7 @@ namespace QuantConnect.Brokerages.TradeStation
 						(decimal)result.StrikePrice,
 						(DateTime)result.ExpirationDate);
 
-					_optionNameResolver[result.Name] = symbol;
+                    _optionNameResolver[symbol] = result.Name;
 				}
 				else
 				{
@@ -161,24 +161,6 @@ namespace QuantConnect.Brokerages.TradeStation
 				}
 				symbolsList.Add(symbol);
 			}
-
-            if (lookupSymbol.SecurityType == SecurityType.Option && _algorithim != null)
-            {
-                /*
-                var symbolCompareList = _algorithim.OptionChainProvider.GetOptionContractList(lookupSymbol.Underlying, DateTime.Today).ToList();
-                //print out comparison between OSC list and broker list
-                Console.WriteLine("==== OSC ====");
-                symbolCompareList.ForEach((sym) =>
-                {
-                    Console.WriteLine(sym.ToString());
-                });
-                Console.WriteLine("==== TradeStation ====");
-                symbolsList.ForEach((sym) =>
-                {
-                    Console.WriteLine(sym.ToString());
-                });
-                */
-            }
 
 			return symbolsList;
 		}
@@ -216,7 +198,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 string value;
                 if (_subscriptions.TryRemove(symbol, out value))
                 {
-                    //
+                    _optionNameResolver.Remove(symbol);
                 }
             }
 
@@ -254,8 +236,16 @@ namespace QuantConnect.Brokerages.TradeStation
 
         private Tick CreateDerivativeTick(QuoteStreamDefinition tsd, SecurityType derivativeType = SecurityType.Equity)
         {
-			Symbol symbol;
-            symbol = _subscriptions.FirstOrDefault(x => x.Key.ID.Symbol == tsd.Symbol && x.Key.SecurityType == derivativeType).Key;
+            Symbol symbol = null;
+
+            if (derivativeType == SecurityType.Option)
+            {
+                symbol = _optionNameResolver.FirstOrDefault(x => x.Value == tsd.Symbol).Key;
+            }
+            if (symbol == null)
+            {
+                symbol = _subscriptions.FirstOrDefault(x => x.Key.ID.Symbol == tsd.Symbol && x.Key.SecurityType == derivativeType).Key;
+            }
 
 			// Not subscribed to this symbol.
 			if (symbol == null)
@@ -354,8 +344,15 @@ namespace QuantConnect.Brokerages.TradeStation
             var symbols = new HashSet<string>();
 			foreach(var sub in _subscriptions)
             {
-                if (!sub.Value.StartsWith("?")) //ignore the derivative-aliased ones
+                if (sub.Key.SecurityType == SecurityType.Option)
+                {
+                    if (_optionNameResolver.ContainsKey(sub.Key))
+                        symbols.Add(_optionNameResolver[sub.Key]);
+                }
+                else
+                {
                     symbols.Add(sub.Value);
+                }
 			}
 			var symbolJoined = String.Join(",", symbols);
 

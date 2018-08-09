@@ -887,9 +887,9 @@ namespace QuantConnect.Brokerages.TradeStation
             DateTime expDate = DateTime.MinValue;
             DateTime.TryParse(position.ContractExpireDate, out expDate);
 
-            Symbol symbol;
+            Symbol symbol = _optionNameResolver.FirstOrDefault(x => x.Value == position.Symbol).Key;
 
-            if (!_optionNameResolver.TryGetValue(position.Symbol, out symbol))
+            if (symbol == null)
             {
                 symbol = ConvertSymbol(
                         position.Symbol,

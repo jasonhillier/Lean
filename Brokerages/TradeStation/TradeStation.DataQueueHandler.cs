@@ -130,6 +130,7 @@ namespace QuantConnect.Brokerages.TradeStation
 				case SecurityType.Option:
                     criteria = "R=" + contractName;
 					criteria += "&C=StockOption";
+                    criteria += "&Exd=10";
 					criteria += "&Stk=20"; //grab many strikes
 					break;
 				case SecurityType.Future:
@@ -161,6 +162,8 @@ namespace QuantConnect.Brokerages.TradeStation
 				}
 				symbolsList.Add(symbol);
 			}
+
+            Log.Trace("[TradeStationBrokerage.LookupSymbols] Found " + symbolsList.Count.ToString() + " symbols for " + contractName);
 
 			return symbolsList;
 		}
@@ -344,10 +347,17 @@ namespace QuantConnect.Brokerages.TradeStation
             var symbols = new HashSet<string>();
 			foreach(var sub in _subscriptions)
             {
-                if (sub.Key.SecurityType == SecurityType.Option)
+                if (sub.Key.Value.StartsWith("?"))
+                {
+                    //resolve derivative
+                    symbols.Add(sub.Key.ID.Symbol);
+                }
+                else if (sub.Key.SecurityType == SecurityType.Option)
                 {
                     if (_optionNameResolver.ContainsKey(sub.Key))
                         symbols.Add(_optionNameResolver[sub.Key]);
+                    else
+                        Log.Error("No option symbol was resolved for " + sub.Key.Value);
                 }
                 else
                 {

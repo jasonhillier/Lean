@@ -61,7 +61,6 @@ namespace QuantConnect.Brokerages.TradeStation
         //Endpoints:
         private readonly IOrderProvider _orderProvider;
         private readonly ISecurityProvider _securityProvider;
-        private readonly IAlgorithm _algorithim;
 
         private readonly object _fillLock = new object();
         private readonly DateTime _initializationDateTime = DateTime.Now;
@@ -90,12 +89,11 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <summary>
         /// Create a new Tradier Object:
         /// </summary>
-        public TradeStationBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm, string accountID, string accessToken, bool simulation)
+        public TradeStationBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider, string accountID, string accessToken, bool simulation)
             : base("TradeStation Brokerage")
         {
             _orderProvider = orderProvider;
             _securityProvider = securityProvider;
-            _algorithim = algorithm;
             _accountID = accountID;
             _accountKeys = new List<string>() { accountID };
             _accessToken = accessToken;
@@ -222,21 +220,35 @@ namespace QuantConnect.Brokerages.TradeStation
             }
 
             var tsOrder = new OrderRequestDefinition();
-            tsOrder.Symbol = order.Symbol.Value;
+            tsOrder.Symbol = ConvertToTradestationSymbol(order.Symbol);
+            if (order.Symbol.SecurityType == SecurityType.Option)
+                tsOrder.AssetType = OrderRequestDefinitionAssetType.OP;
+            else
+                tsOrder.AssetType = OrderRequestDefinitionAssetType.EQ;
             tsOrder.AccountKey = _accountKeys[0];
             tsOrder.Quantity = order.AbsoluteQuantity.ToString();
             if (order.Direction == OrderDirection.Buy)
                 tsOrder.TradeAction = OrderRequestDefinitionTradeAction.BUY;
             else
-                tsOrder.TradeAction = OrderRequestDefinitionTradeAction.SELLSHORT;
+                tsOrder.TradeAction = OrderRequestDefinitionTradeAction.SELL;
             tsOrder.OrderConfirmId = Guid.NewGuid().ToString();
-            tsOrder.Duration = OrderRequestDefinitionDuration.GTC;
+            if (order.TimeInForce == TimeInForce.Day)
+            {
+                tsOrder.Duration = OrderRequestDefinitionDuration.DAY;
+            }
+            else
+            {
+                tsOrder.Duration = OrderRequestDefinitionDuration.GTC;
+            }
 
             switch (order.Type)
             {
                 case Orders.OrderType.Limit:
                     tsOrder.LimitPrice = ((LimitOrder)order).LimitPrice.ToString();
                     tsOrder.OrderType = OrderRequestDefinitionOrderType.Limit;
+                    break;
+                case Orders.OrderType.Market:
+                    tsOrder.OrderType = OrderRequestDefinitionOrderType.Market;
                     break;
                 default:
                     throw new Exception("Order type not supported!");
@@ -802,8 +814,13 @@ namespace QuantConnect.Brokerages.TradeStation
         /// </summary>
         protected TimeInForce ConvertDuration(string duration)
         {
-            //TODO
-            return TimeInForce.GoodTilCanceled;
+            switch(duration)
+            {
+                case "Day":
+                    return TimeInForce.Day;
+                default:
+                    return TimeInForce.GoodTilCanceled;
+            }
         }
 
         /// <summary>
@@ -863,6 +880,22 @@ namespace QuantConnect.Brokerages.TradeStation
             }
         }
 
+        protected string ConvertToTradestationSymbol(Symbol pSymbol)
+        {
+            if (pSymbol.SecurityType == SecurityType.Option)
+            {
+                if (_optionNameResolver.ContainsKey(pSymbol))
+                    return _optionNameResolver[pSymbol];
+
+                //TODO: build converter
+                throw new Exception("TradeStation.ConvertToTradestationSymbol: Could not resolve option symbol!");
+            }
+            else
+            {
+                return pSymbol.Value;
+            }
+        }
+
         protected Symbol ConvertSymbol(string pSymbolName, AssetType2 pAssetType, string pMarket = Market.USA, DateTime? pExpDate = null, OptionRight? pOptionRight = null, double pStrike = 0)
         {
             switch(pAssetType)
@@ -871,6 +904,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     return Symbol.CreateFuture(pSymbolName, pMarket, (DateTime)pExpDate);
 
                 case AssetType2.Op:
+                    //TODO: need to convert
                     return Symbol.CreateOption(pSymbolName, pMarket, OptionStyle.American, (OptionRight)pOptionRight, (decimal)pStrike, (DateTime)pExpDate);
 
                 case AssetType2.EQ:

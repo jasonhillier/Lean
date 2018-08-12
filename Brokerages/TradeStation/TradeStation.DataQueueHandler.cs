@@ -45,7 +45,6 @@ namespace QuantConnect.Brokerages.TradeStation
         private volatile bool _refresh = true;
         private Timer _refreshDelay = new Timer();
         private readonly ConcurrentDictionary<Symbol, string> _subscriptions = new ConcurrentDictionary<Symbol, string>();
-		private Dictionary<Symbol, List<Symbol>> _optionList = new Dictionary<Symbol, List<Symbol>>();
 		private Dictionary<Symbol, string> _optionNameResolver = new Dictionary<Symbol, string>();
 		private Stream _tradestationStream;
 
@@ -201,7 +200,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 string value;
                 if (_subscriptions.TryRemove(symbol, out value))
                 {
-                    _optionNameResolver.Remove(symbol);
+                    //_optionNameResolver.Remove(symbol); //for now keep everything in the cache
                 }
             }
 

@@ -38,8 +38,6 @@
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>QuantConnect.ToolBox.TradeCommand.Program</StartupObject>
-    <StartupObject>QuantConnect.ToolBox.AlgoOptimizer.Program</StartupObject>
-    <StartupObject>QuantConnect.ToolBox.CoarseUniverseGenerator.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DotNetZip, Version=1.10.1.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">

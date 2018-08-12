@@ -46,7 +46,7 @@ namespace QuantConnect.ToolBox.TradeCommand
             var securityProvider = new SecurityProvider();
             var accountID = TradeStationBrokerageFactory.Configuration.AccountID;
             var accessToken = TradeStationBrokerageFactory.Configuration.AccessToken;
-            TradeStationBrokerage broker = new TradeStationBrokerage(orderProvider, securityProvider, null, accountID, accessToken, TradeStationBrokerageFactory.Configuration.Simulation);
+            TradeStationBrokerage broker = new TradeStationBrokerage(orderProvider, securityProvider, accountID, accessToken, TradeStationBrokerageFactory.Configuration.Simulation);
 
             try
             {
@@ -66,6 +66,11 @@ namespace QuantConnect.ToolBox.TradeCommand
                     Symbol.Create("SPY", SecurityType.Equity, Market.USA),
                     -10,
                     275,
+                    DateTime.Now));
+
+                broker.PlaceOrder(new Orders.MarketOrder(
+                    Symbol.Create("SPY", SecurityType.Equity, Market.USA),
+                    -10,
                     DateTime.Now));
 
                 orders = broker.GetOpenOrders();

@@ -14544,13 +14544,13 @@ namespace QuantConnect.Brokerages.TradeStation
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
     public partial class Anonymous13 : System.ComponentModel.INotifyPropertyChanged
     {
-        private double _currency;
+        private string _currency;
         private double _profit;
         private string _symbol;
 
         /// <summary>The base currency of the symbol.</summary>
         [Newtonsoft.Json.JsonProperty("Currency", Required = Newtonsoft.Json.Required.Default)]
-        public double Currency
+        public string Currency
         {
             get { return _currency; }
             set

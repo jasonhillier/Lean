@@ -46,7 +46,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private Timer _refreshDelay = new Timer();
         private readonly ConcurrentDictionary<Symbol, string> _subscriptions = new ConcurrentDictionary<Symbol, string>();
 		private Dictionary<Symbol, string> _optionNameResolver = new Dictionary<Symbol, string>();
-		private Stream _tradestationStream;
+        private Stream _tradestationStream;
 
         /// <summary>
         /// Get a stream of ticks from the brokerage
@@ -66,6 +66,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 //If there's been an update to the subscriptions list; recreate the stream.
                 if (_refresh)
                 {
+                    _refresh = false;
                     var stream = Stream();
                     pipe = stream.GetEnumerator();
                 }
@@ -322,11 +323,13 @@ namespace QuantConnect.Brokerages.TradeStation
         /// </summary>
         private void CloseStream()
         {
-            if (_tradestationStream != null)
+            if (_tradestationStream !=  null)
             {
+                _tradestationStream.Close();
+
                 Log.Trace("TradestationBrokerage.DataQueueHandler.CloseStream(): Closing stream socket...");
-				_refresh = true;
-			}
+                _refresh = true;
+            }
         }
 
         /// <summary>
@@ -337,7 +340,11 @@ namespace QuantConnect.Brokerages.TradeStation
 
         private IEnumerable<QuoteStreamDefinition> Stream()
         {
-			_refresh = false;
+            if (_tradestationStream != null)
+            {
+                //only 1 is allowed at a time
+                _tradestationStream.Close();
+            }
 
 			//Tradestation will send a full quote first, then only changes. We need to keep track of the full one,
 			// and merge in the changed one.
@@ -368,15 +375,16 @@ namespace QuantConnect.Brokerages.TradeStation
             Log.Trace("TradeStation.Stream(): Creating new session, Reading Stream... (" + symbols.Count + " tickers)", true);
 			HttpWebRequest request;
             request = (HttpWebRequest)WebRequest.Create(String.Format("{0}/stream/quote/changes/{1}?access_token={2}", _tradeStationClient.BaseUrl, symbolJoined, _accessToken));
+            request.Timeout = 30 * 1000;
             request.Accept = "application/vnd.tradestation.streams+json";
 
             //Get response as a stream:
             try
             {
                 var response = (HttpWebResponse)request.GetResponse();
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    Log.Trace("TradeStation.DataQueueHandler.Stream(): Unauthroized request! Disconnecting from stream...");
+                    Log.Trace("TradeStation.DataQueueHandler.Stream(): Bad request status " + response.StatusCode + "! Disconnecting from stream...");
                     _isConnected = false;
                     yield break;
                 }
@@ -393,6 +401,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 yield break;
             }
 
+            using(_tradestationStream)
             using (var sr = new StreamReader(_tradestationStream))
             using (var jsonReader = new JsonTextReader(sr))
             {
@@ -405,13 +414,16 @@ namespace QuantConnect.Brokerages.TradeStation
 
 					try
                     {
-						if (!_tradestationStream.CanRead)
+                        if (!_tradestationStream.CanRead)
 							yield break; //stream closed down, exit normally
 
                         //Read the jsonSocket in a safe manner: might close and so need handlers, but can't put handlers around a yield.
                         jsonReader.Read();
-						if (jsonReader.TokenType != JsonToken.StartObject)
-							continue; //bad json or we're parsing in the wrong place somehow, just move along...
+                        if (jsonReader.TokenType != JsonToken.StartObject)
+                        {
+                            Log.Debug("TradeStation.DataQueueHandler.Stream(): token parse error");
+                            continue; //bad json or we're parsing in the wrong place somehow, just move along...
+                        }
 						
 						token = JToken.Load(jsonReader);
 					}
@@ -427,7 +439,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     }
 
 					//after the first read, we set a high timeout on the socket, the server can keep it open as long as it wants.
-					_tradestationStream.ReadTimeout = 15 * 60 * 1000; //15mins
+                    _tradestationStream.ReadTimeout = 15 * 60 * 1000; //15mins
 
 					//now deserialize it for processing
 					/*

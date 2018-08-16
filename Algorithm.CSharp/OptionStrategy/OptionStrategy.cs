@@ -36,7 +36,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             // set our strike/expiry filter for this option chain
             _Option.SetFilter(u => u.Strikes(-10, +15)
-                              .Expiration(TimeSpan.Zero, TimeSpan.FromDays(65)));
+                              .Expiration(TimeSpan.Zero, TimeSpan.FromDays(45)));
                               //.IncludeWeeklys());
         }
 

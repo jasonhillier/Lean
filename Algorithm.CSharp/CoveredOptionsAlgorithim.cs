@@ -114,6 +114,7 @@ namespace QuantConnect.Algorithm.CSharp
                 {
                     Log(String.Format("QUOTE {0}={1}", kvp.Key.ToString(), kvp.Value.Price));
                 }
+                return; //skip ordering
 
                 if (!_Strategy.IsInvested())
 				{

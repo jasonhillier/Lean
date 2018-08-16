@@ -20,38 +20,45 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override bool MarketBuyOptions(List<OptionContract> Contracts, int OverrideQuantity = 0)
         {
-			if (Contracts == null || Contracts.Count == 0)
+            try
+            {
+                if (Contracts == null || Contracts.Count == 0)
+                    return false;
+
+                int quantity = OverrideQuantity;
+                if (quantity == 0)
+                    quantity = _PositionSizeStart * (this.InvestedTiers() + 1);
+
+                Contracts.ForEach(contract =>
+                {
+                    //seems wrong
+                    DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
+                    _Log("{0} Purchase {1} {2} @ {3} ({4} {5})",
+                             lastBarEndTime.ToString(),
+                             contract.Right.ToString().ToUpper(),
+                             contract.Strike,
+                             contract.AskPrice,
+                             _Option.Underlying.Symbol,
+                             _Option.Underlying.Price
+                            );
+                    //we short the option, then cover with underlying
+                    _Algo.MarketOrder(contract.Symbol, -quantity);
+                });
+
+                //if doing covered calls, market buy underlying
+                if (_Side == OptionRight.Call)
+                {
+                    _Algo.MarketOrder(_OptionSymbol.Underlying, quantity);
+                }
+                else
+                {
+                    //otherwise, setup a synthetic short
+                    throw new NotImplementedException();
+                }
+            } catch (Exception ex)
+            {
+                _Log("MarketBuyOptions exception!! " + ex.Message);
                 return false;
-
-            int quantity = OverrideQuantity;
-            if (quantity == 0)
-                quantity = _PositionSizeStart * (this.InvestedTiers() + 1);
-
-			Contracts.ForEach(contract=>
-            {
-				//seems wrong
-				DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
-                _Log("{0} Purchase {1} {2} @ {3} ({4} {5})",
-                     lastBarEndTime.ToString(),
-                     contract.Right.ToString().ToUpper(),
-                     contract.Strike,
-                     contract.AskPrice,
-                     _Option.Underlying.Symbol,
-                     _Option.Underlying.Price
-                    );
-                //we short the option, then cover with underlying
-                _Algo.MarketOrder(contract.Symbol, -quantity);
-            });
-
-            //if doing covered calls, market buy underlying
-            if (_Side == OptionRight.Call)
-            {
-                _Algo.MarketOrder(_OptionSymbol.Underlying, quantity);
-            }
-            else
-            {
-                //otherwise, setup a synthetic short
-                throw new NotImplementedException();
             }
 
 			return true;

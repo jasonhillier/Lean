@@ -241,11 +241,16 @@ namespace QuantConnect.Brokerages.TradeStation
         {
             Symbol symbol = null;
 
+			//TODO: fix this hackiness
             if (derivativeType == SecurityType.Option)
             {
                 symbol = _optionNameResolver.FirstOrDefault(x => x.Value == tsd.Symbol).Key;
+				if (symbol == null)
+				{
+					symbol = _subscriptions.FirstOrDefault(x => x.Key.Value.StartsWith("?") && x.Key.ID.Symbol == tsd.Symbol && x.Key.SecurityType == SecurityType.Option).Key;
+				}
             }
-            if (symbol == null)
+            else
             {
                 symbol = _subscriptions.FirstOrDefault(x => x.Key.ID.Symbol == tsd.Symbol && x.Key.SecurityType == derivativeType).Key;
             }

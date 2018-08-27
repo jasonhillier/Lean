@@ -10081,7 +10081,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private double _close;
         private string _closePriceDisplay;
         private string _countryCode;
-        private Currency3 _currency;
+        private string _currency;
         private double _dailyOpenInterest;
         private string _dataFeed;
         private string _description;
@@ -10281,8 +10281,7 @@ namespace QuantConnect.Brokerages.TradeStation
         /// <summary>The base currency of the symbol.</summary>
         [Newtonsoft.Json.JsonProperty("Currency", Required = Newtonsoft.Json.Required.Default)]
         [System.ComponentModel.DataAnnotations.Required]
-        [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-        public Currency3 Currency
+        public string Currency
         {
             get { return _currency; }
             set
@@ -11967,7 +11966,7 @@ namespace QuantConnect.Brokerages.TradeStation
         private string _alias;
         private double _askPrice;
         private string _askPriceDisplay;
-        private AssetType2 _assetType;
+        private AssetType3 _assetType;
         private double _averagePrice;
         private string _averagePriceDisplay;
         private double _bidPrice;
@@ -12114,7 +12113,7 @@ namespace QuantConnect.Brokerages.TradeStation
         [Newtonsoft.Json.JsonProperty("AssetType", Required = Newtonsoft.Json.Required.Default)]
         [System.ComponentModel.DataAnnotations.Required]
         [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-        public AssetType2 AssetType
+        public AssetType3 AssetType
         {
             get { return _assetType; }
             set
@@ -14038,7 +14037,7 @@ namespace QuantConnect.Brokerages.TradeStation
     {
         private string _symbol;
         private string _quantity;
-        private TradeAction2? _tradeAction;
+        private TradeAction? _tradeAction;
 
         /// <summary>Must be UPPERCASE</summary>
         [Newtonsoft.Json.JsonProperty("Symbol", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
@@ -14084,7 +14083,7 @@ namespace QuantConnect.Brokerages.TradeStation
         [Newtonsoft.Json.JsonProperty("TradeAction", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         [System.ComponentModel.DataAnnotations.StringLength(int.MaxValue, MinimumLength = 1)]
         [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-        public TradeAction2? TradeAction
+        public TradeAction? TradeAction
         {
             get { return _tradeAction; }
             set
@@ -14480,49 +14479,6 @@ namespace QuantConnect.Brokerages.TradeStation
 
 	}
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
-    public enum Currency3
-    {
-        [System.Runtime.Serialization.EnumMember(Value = "USD")]
-        USD = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = "AUD")]
-        AUD = 1,
-
-        [System.Runtime.Serialization.EnumMember(Value = "CAD")]
-        CAD = 2,
-
-        [System.Runtime.Serialization.EnumMember(Value = "CHF")]
-        CHF = 3,
-
-        [System.Runtime.Serialization.EnumMember(Value = "DKK")]
-        DKK = 4,
-
-        [System.Runtime.Serialization.EnumMember(Value = "EUR")]
-        EUR = 5,
-
-        [System.Runtime.Serialization.EnumMember(Value = "DBP")]
-        DBP = 6,
-
-        [System.Runtime.Serialization.EnumMember(Value = "HKD")]
-        HKD = 7,
-
-        [System.Runtime.Serialization.EnumMember(Value = "JPY")]
-        JPY = 8,
-
-        [System.Runtime.Serialization.EnumMember(Value = "NOK")]
-        NOK = 9,
-
-        [System.Runtime.Serialization.EnumMember(Value = "NZD")]
-        NZD = 10,
-
-        [System.Runtime.Serialization.EnumMember(Value = "SEK")]
-        SEK = 11,
-
-        [System.Runtime.Serialization.EnumMember(Value = "SGD")]
-        SGD = 12,
-
-    }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
     public enum TypeDescription
@@ -15055,20 +15011,6 @@ namespace QuantConnect.Brokerages.TradeStation
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
-    public enum AssetType2
-    {
-        [System.Runtime.Serialization.EnumMember(Value = "EQ")]
-        EQ = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = "Op")]
-        Op = 1,
-
-        [System.Runtime.Serialization.EnumMember(Value = "Fu")]
-        Fu = 2,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
     public enum LongShort
     {
         [System.Runtime.Serialization.EnumMember(Value = "Long")]
@@ -15123,6 +15065,9 @@ namespace QuantConnect.Brokerages.TradeStation
         [System.Runtime.Serialization.EnumMember(Value = "FU")]
         FU = 0,
 
+        [System.Runtime.Serialization.EnumMember(Value = "Fu")]
+        Fu = 0,
+
         [System.Runtime.Serialization.EnumMember(Value = "FO")]
         FO = 1,
 
@@ -15152,6 +15097,12 @@ namespace QuantConnect.Brokerages.TradeStation
 
         [System.Runtime.Serialization.EnumMember(Value = "F")]
         F = 9,
+
+        [System.Runtime.Serialization.EnumMember(Value = "OP")]
+        OP = 10,
+
+        [System.Runtime.Serialization.EnumMember(Value = "Op")]
+        Op = 10,
 
     }
 
@@ -15666,9 +15617,20 @@ namespace QuantConnect.Brokerages.TradeStation
         [System.Runtime.Serialization.EnumMember(Value = "Sell Short")]
         SellShort = 0,
 
+        [System.Runtime.Serialization.EnumMember(Value = "Sell to Close")]
+        SellToClose = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = "Sell to Open")]
+        SellToOpen = 0,
+
         [System.Runtime.Serialization.EnumMember(Value = "Buy")]
         Buy = 1,
 
+        [System.Runtime.Serialization.EnumMember(Value = "Buy to Open")]
+        BuyToOpen = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = "Buy to Close")]
+        BuyToClose = 1
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
@@ -15725,35 +15687,6 @@ namespace QuantConnect.Brokerages.TradeStation
 
         [System.Runtime.Serialization.EnumMember(Value = "OCO")]
         OCO = 2,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]
-    public enum TradeAction2
-    {
-        [System.Runtime.Serialization.EnumMember(Value = "BUY")]
-        BUY = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = "SELL")]
-        SELL = 1,
-
-        [System.Runtime.Serialization.EnumMember(Value = "BUYTOCOVER")]
-        BUYTOCOVER = 2,
-
-        [System.Runtime.Serialization.EnumMember(Value = "SELLSHORT")]
-        SELLSHORT = 3,
-
-        [System.Runtime.Serialization.EnumMember(Value = "BUYTOOPEN")]
-        BUYTOOPEN = 4,
-
-        [System.Runtime.Serialization.EnumMember(Value = "BUYTOCLOSE")]
-        BUYTOCLOSE = 5,
-
-        [System.Runtime.Serialization.EnumMember(Value = "SELLTOOPEN")]
-        SELLTOOPEN = 6,
-
-        [System.Runtime.Serialization.EnumMember(Value = "SELLTOCLOSE")]
-        SELLTOCLOSE = 7,
 
     }
 

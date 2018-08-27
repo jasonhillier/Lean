@@ -184,9 +184,21 @@ namespace QuantConnect.Brokerages.TradeStation
             return holdings;
         }
 
-        public System.Collections.ObjectModel.ObservableCollection<Anonymous3> GetQuotes(List<string> symbols)
+        public Anonymous3 GetQuote(Symbol pLeanSymbol)
         {
-            return _tradeStationClient.GetQuotesAsync(_accessToken, String.Join(",", symbols)).Result;
+            string brokerSymbol = this.ConvertToTradestationSymbol(pLeanSymbol);
+            return this.GetQuote(brokerSymbol);
+        }
+
+        public Anonymous3 GetQuote(string brokerSymbol)
+        {
+            var result = this.GetQuotes(new List<string> { brokerSymbol });
+            return result.FirstOrDefault();
+        }
+
+        public System.Collections.ObjectModel.ObservableCollection<Anonymous3> GetQuotes(List<string> brokerSymbols)
+        {
+            return _tradeStationClient.GetQuotesAsync(_accessToken, String.Join(",", brokerSymbols)).Result;
         }
 
         /// <summary>
@@ -246,6 +258,8 @@ namespace QuantConnect.Brokerages.TradeStation
                 case Orders.OrderType.Limit:
                     tsOrder.LimitPrice = ((LimitOrder)order).LimitPrice.ToString();
                     tsOrder.OrderType = OrderRequestDefinitionOrderType.Limit;
+                    //TODO: support more order types
+                    tsOrder.TradeAction = tsOrder.TradeAction == OrderRequestDefinitionTradeAction.BUY ? OrderRequestDefinitionTradeAction.BUYTOOPEN : OrderRequestDefinitionTradeAction.SELLTOCLOSE;
                     break;
                 case Orders.OrderType.Market:
                     tsOrder.OrderType = OrderRequestDefinitionOrderType.Market;
@@ -792,7 +806,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     throw new NotImplementedException("The Tradier order type " + order.Type + " is not implemented.");
             }
             */
-            qcOrder.Symbol = Symbol.Create(order.Symbol, SecurityType.Equity, Market.USA);
+            qcOrder.Symbol = ConvertSymbol(order.Symbol, order.AssetType);// Symbol.Create(order.Symbol, SecurityType.Equity, Market.USA);
             qcOrder.Quantity = ConvertQuantity(order);
             qcOrder.Status = ConvertStatus(order.Status);
             qcOrder.Id = Int32.Parse(order.OrderID.ToString());
@@ -884,6 +898,13 @@ namespace QuantConnect.Brokerages.TradeStation
         {
             if (pSymbol.SecurityType == SecurityType.Option)
             {
+                //look in cache
+                if (_optionNameResolver.ContainsKey(pSymbol))
+                    return _optionNameResolver[pSymbol];
+
+                //if it isn't in the cache, try lookup option symbols
+                this.LookupSymbols(pSymbol.Underlying.Value);
+
                 if (_optionNameResolver.ContainsKey(pSymbol))
                     return _optionNameResolver[pSymbol];
 
@@ -896,18 +917,29 @@ namespace QuantConnect.Brokerages.TradeStation
             }
         }
 
-        protected Symbol ConvertSymbol(string pSymbolName, AssetType2 pAssetType, string pMarket = Market.USA, DateTime? pExpDate = null, OptionRight? pOptionRight = null, double pStrike = 0)
+        protected Symbol ConvertSymbol(string pSymbolName, AssetType3 pAssetType, string pMarket = Market.USA, DateTime? pExpDate = null, OptionRight? pOptionRight = null, double pStrike = 0)
         {
             switch(pAssetType)
             {
-                case AssetType2.Fu:
+                case AssetType3.Fu:
                     return Symbol.CreateFuture(pSymbolName, pMarket, (DateTime)pExpDate);
 
-                case AssetType2.Op:
-                    //TODO: need to convert
-                    return Symbol.CreateOption(pSymbolName, pMarket, OptionStyle.American, (OptionRight)pOptionRight, (decimal)pStrike, (DateTime)pExpDate);
+                case AssetType3.Op:
+                    //try to resolve
+                    var symbol = _optionNameResolver.FirstOrDefault((x) => x.Value == pSymbolName).Key;
+                    if (symbol != null)
+                        return symbol;
 
-                case AssetType2.EQ:
+                    //lookup the options for this base symbol
+                    string assumeBaseSymbol = pSymbolName.Split(' ')[0];
+                    this.LookupSymbols(assumeBaseSymbol, SecurityType.Option);
+                    //try again
+                    symbol = _optionNameResolver.FirstOrDefault((x) => x.Value == pSymbolName).Key;
+                    if (symbol != null)
+                        return symbol;
+
+                    throw new Exception("Failed to resolve symbol " + pSymbolName + " with broker!");
+                case AssetType3.EQ:
                 default:
                     return Symbol.Create(pSymbolName, SecurityType.Equity, pMarket);
             }
@@ -918,21 +950,7 @@ namespace QuantConnect.Brokerages.TradeStation
         /// </summary>
         protected Holding ConvertHolding(Anonymous7 position)
         {
-            DateTime expDate = DateTime.MinValue;
-            DateTime.TryParse(position.ContractExpireDate, out expDate);
-
-            Symbol symbol = _optionNameResolver.FirstOrDefault(x => x.Value == position.Symbol).Key;
-
-            if (symbol == null)
-            {
-                symbol = ConvertSymbol(
-                        position.Symbol,
-                        position.AssetType,
-                        Market.USA,
-                        expDate,
-                    OptionRight.Put, //TODO: resolve this
-                    position.StrikePrice);
-            }
+            var symbol = ConvertSymbol(position.Symbol, position.AssetType);
 
             return new Holding
             {

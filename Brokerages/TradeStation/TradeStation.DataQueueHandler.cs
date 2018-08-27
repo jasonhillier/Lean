@@ -201,7 +201,7 @@ namespace QuantConnect.Brokerages.TradeStation
                 string value;
                 if (_subscriptions.TryRemove(symbol, out value))
                 {
-                    //_optionNameResolver.Remove(symbol); //for now keep everything in the cache
+                    //!!! _optionNameResolver.Remove(symbol); //DON'T REMOVE FROM CACHE!! for now keep everything in the cache
                 }
             }
 

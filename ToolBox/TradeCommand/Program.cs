@@ -3,6 +3,7 @@ using System;
 using System.Globalization;
 using QuantConnect.Configuration;
 using QuantConnect.Logging;
+using System.Linq;
 using System.IO;
 using QuantConnect.Data.Market;
 using QuantConnect.Data;
@@ -62,6 +63,31 @@ namespace QuantConnect.ToolBox.TradeCommand
                 var orders = broker.GetOpenOrders();
                 Commands.PrintOrders(orders);
 
+                //lookup options for VXX
+                var symbols = broker.LookupSymbols(Symbol.CreateOption("VXX", "usa", OptionStyle.American, OptionRight.Call, 1, DateTime.Now));
+                Commands.PrintSymbols(symbols);
+
+                var option = symbols.First();
+                var optionQuote = broker.GetQuote(option);
+                Commands.PrintQuotes(optionQuote);
+
+                broker.PlaceOrder(new Orders.LimitOrder(
+                    option,
+                    1,
+                    (decimal)1.55,
+                    DateTime.Now));
+
+                /*
+                broker.PlaceOrder(new Orders.MarketOrder(
+                    option,
+                    1,
+                    DateTime.Now));
+                    */
+
+
+                //broker.PlaceOrder(new Orders.)
+
+                /*
                 broker.PlaceOrder(new Orders.LimitOrder(
                     Symbol.Create("SPY", SecurityType.Equity, Market.USA),
                     -10,
@@ -72,7 +98,7 @@ namespace QuantConnect.ToolBox.TradeCommand
                     Symbol.Create("SPY", SecurityType.Equity, Market.USA),
                     -10,
                     DateTime.Now));
-
+                */
                 orders = broker.GetOpenOrders();
                 Commands.PrintOrders(orders);
 

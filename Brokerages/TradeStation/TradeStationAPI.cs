@@ -15102,8 +15102,7 @@ namespace QuantConnect.Brokerages.TradeStation
         OP = 10,
 
         [System.Runtime.Serialization.EnumMember(Value = "Op")]
-        Op = 10,
-
+        Op = 10
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "9.10.50.0 (Newtonsoft.Json v9.0.0.0)")]

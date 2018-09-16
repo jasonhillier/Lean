@@ -83,8 +83,8 @@ namespace QuantConnect.Brokerages.TradeStation
 					}
 					else
 					{
-						Log.Trace("Market is closed, will reconnect in 30 mins.");
-						Thread.Sleep(30 * 60 * 1000);
+						Log.Trace("Market is closed, will reconnect in 20 mins.");
+						Thread.Sleep(20 * 60 * 1000);
                         //Thread.Sleep(10000);
 					}
 				}
@@ -131,7 +131,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     criteria = "R=" + contractName;
 					criteria += "&C=StockOption";
                     criteria += "&Exd=10";
-					criteria += "&Stk=20"; //grab many strikes
+					criteria += "&Stk=30"; //grab many strikes
 					break;
 				case SecurityType.Future:
                     criteria = "N=" + contractName;

@@ -444,7 +444,8 @@ namespace QuantConnect.Brokerages.TradeStation
                     }
 
 					//after the first read, we set a high timeout on the socket, the server can keep it open as long as it wants.
-                    _tradestationStream.ReadTimeout = 15 * 60 * 1000; //15mins
+					//... but if nothing comes in for a few minutes, might as well restart the stream.
+                    _tradestationStream.ReadTimeout = 3 * 60 * 1000; //3mins
 
 					//now deserialize it for processing
 					/*

@@ -211,6 +211,8 @@
     <Compile Include="Benchmarks\IndicatorRibbonBenchmark.cs" />
     <Compile Include="OptionStrategy\CoveredOptionStrategy.cs" />
     <Compile Include="CoveredOptionsAlgorithim.cs" />
+    <Compile Include="OptionStrategy\OptionTraverseStrategy.cs" />
+    <Compile Include="OptionsTraverseAlgo.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm.Framework\QuantConnect.Algorithm.Framework.csproj">

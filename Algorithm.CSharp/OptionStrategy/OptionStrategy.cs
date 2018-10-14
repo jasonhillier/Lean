@@ -346,11 +346,11 @@ namespace QuantConnect.Algorithm.CSharp
         {
             if (pContract.Right == OptionRight.Put)
             {
-                return (pContract.Strike - pUnderlyingPrice) > 0;
+                return (pUnderlyingPrice - pContract.Strike) > 0;
             }
             else if (pContract.Right == OptionRight.Call)
             {
-                return (pContract.Strike - pUnderlyingPrice) < 0;
+                return (pContract.Strike - pUnderlyingPrice) > 0;
             }
 
             return false;

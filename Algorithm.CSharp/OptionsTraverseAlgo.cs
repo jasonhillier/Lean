@@ -139,7 +139,7 @@ namespace QuantConnect.Algorithm.CSharp
 				{
 					Console.WriteLine("<{0}>\tROCP= {1:00}", e.Time.ToString(), _rocp.Current.Value);
 
-                    _Strategy.Open(_lastSlice, true);
+                    _Strategy.Open(_lastSlice, false);
 				}
 				
 				/*else if (_Strategy.AggregateProfitPercentage(_lastSlice) < -.1m)

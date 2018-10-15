@@ -29,14 +29,27 @@ namespace QuantConnect.Algorithm.CSharp
 
             this.OutsideOptionMinPrice = .20m;
             this.OutsideOptionMinSpread = 2;
-            this.IsInvested = false;
         }
 
         public decimal OutsideOptionMinPrice { get; set; }
         public int OutsideOptionMinSpread { get; set; }
-        public bool IsInvested { get; set; }
+        public bool IsInvested
+        {
+            get
+            {
+                CheckIfAssigned();
+                return _Algo.Portfolio.Securities.Any(x =>  x.Value.Symbol.SecurityType == SecurityType.Option &&
+                                                            x.Value.Symbol.Underlying.Value == _Option.Symbol.Underlying.Value &&
+                                                            x.Value.Invested);
+            }
+        }
 
-        public void Open(Slice slice, bool biasDown)
+        protected void _Log(string Text, params object[] args)
+        {
+            _Algo.Debug(String.Format(Text, args));
+        }
+
+        public void Open(Slice slice, bool biasDown, int quantity = 1)
         {
             var chain = GetOptionChain(slice);
             if (chain == null) return;
@@ -66,12 +79,69 @@ namespace QuantConnect.Algorithm.CSharp
                 }
             }
 
-            this._PlaceComboOrder(inOptions, outOptions);
+            _PlaceComboOrder(inOptions, outOptions, quantity);
         }
 
-        protected virtual void _PlaceComboOrder(Tuple<OptionContract, OptionContract> inside, Tuple<OptionContract, OptionContract> outside)
+        protected virtual void _PlaceComboOrder(Tuple<OptionContract, OptionContract> inside, Tuple<OptionContract, OptionContract> outside, int Quantity = 1)
         {
-            Console.WriteLine("Placing combo option order...");
+            _Log("Placing combo option order...");
+            //TODO: need to use advance order type so broker can dynamically adjust to order book but keep relative limit price
+
+            //buy ATM option
+            MarketBuyOptions(new List<OptionContract> { inside.Item1 }, Quantity);
+            //short adjacent, and short outside options
+            MarketShortOptions(new List<OptionContract>
+            {
+                inside.Item2,
+                outside.Item1,
+                outside.Item2
+            }, Quantity);
+        }
+
+        public virtual bool MarketBuyOptions(List<OptionContract> Contracts, int Quantity = 1)
+        {
+            if (Contracts == null || Contracts.Count == 0)
+                return false;
+
+            Contracts.ForEach(contract =>
+            {
+                //seems wrong
+                DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
+                _Log("{0} Purchase {1} {2} @ {3} ({4} {5})",
+                     lastBarEndTime.ToString(),
+                     contract.Right.ToString().ToUpper(),
+                     contract.Strike,
+                     contract.AskPrice,
+                     _Option.Underlying.Symbol,
+                     _Option.Underlying.Price
+                    );
+                _Algo.MarketOrder(contract.Symbol, Quantity);
+            });
+
+            return true;
+        }
+
+        public virtual bool MarketShortOptions(List<OptionContract> Contracts, int Quantity = 1)
+        {
+            if (Contracts == null || Contracts.Count == 0)
+                return false;
+
+            Contracts.ForEach(contract =>
+            {
+                //seems wrong
+                DateTime lastBarEndTime = _Option.Underlying.GetLastData().EndTime; //verify
+                _Log("{0} Short {1} {2} @ {3} ({4} {5})",
+                     lastBarEndTime.ToString(),
+                     contract.Right.ToString().ToUpper(),
+                     contract.Strike,
+                     contract.AskPrice,
+                     _Option.Underlying.Symbol,
+                     _Option.Underlying.Price
+                    );
+                _Algo.MarketOrder(contract.Symbol, -Quantity);
+            });
+
+            return true;
         }
 
         protected virtual Tuple<OptionContract,OptionContract> _SelectInsideOptions(Slice slice, OptionChain Chain, bool biasDown)
@@ -158,6 +228,18 @@ namespace QuantConnect.Algorithm.CSharp
             }
 
             return chain;
+        }
+
+        public bool CheckIfAssigned()
+        {
+            if (_Algo.Portfolio.Securities[this._OptionSymbol.Underlying.Value].Invested)
+            {
+                //dispose of assigned stock
+                _Algo.MarketOrder(this._OptionSymbol.Underlying, -_Algo.Portfolio.Securities[this._OptionSymbol.Underlying.Value].Holdings.Quantity);
+                return true;
+            }
+
+            return false;
         }
     }
 }

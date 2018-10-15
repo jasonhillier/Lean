@@ -74,7 +74,7 @@ namespace QuantConnect.Algorithm.CSharp
 			//SetStartDate(2015, 01, 01);
 			//SetStartDate(2018, 02, 15);
 			//SetEndDate(2018, 03, 09);
-			SetCash(20000);
+			SetCash(50000);
 
 			//this.
 

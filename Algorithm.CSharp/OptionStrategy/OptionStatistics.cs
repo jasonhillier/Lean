@@ -57,7 +57,7 @@ namespace QuantConnect.Algorithm.CSharp
             //TODO: divide into expirations and types, then assign rank/depth ITM/OTM
             return chain.All((contract) =>
             {
-                _CurrentCalculations.Add(new OptionCalculation(contract, QuoteTime));
+                _CurrentCalculations.Add(new OptionCalculation(contract, slice.Get<TradeBar>(contract.UnderlyingSymbol), QuoteTime));
                 Console.WriteLine("<{0}> added calc", QuoteTime.ToString());
                 return true;
             });
@@ -174,12 +174,14 @@ namespace QuantConnect.Algorithm.CSharp
         {
             private OptionContract _Contract;
             private DateTime _QuoteTime;
+			private TradeBar _UnderlyingData;
 
-            public OptionCalculation(OptionContract Contract, DateTime QuoteTime)
+            public OptionCalculation(OptionContract Contract, TradeBar pUnderlyingData, DateTime QuoteTime)
             {
                 _Contract = Contract;
                 _QuoteTime = QuoteTime;
-            }
+				_UnderlyingData = pUnderlyingData;
+			}
 
             public string id
             {
@@ -243,6 +245,11 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 get { return _Contract.UnderlyingSymbol.Value; }
             }
+
+			public int baseVolume
+			{
+				get { return (int)_UnderlyingData.Volume; }
+			}
 
             public decimal basePrice
             {

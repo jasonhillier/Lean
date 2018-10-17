@@ -63,6 +63,7 @@
     <Compile Include="Alphas\INamedModel.cs" />
     <Compile Include="Alphas\NullAlphaModel.cs" />
     <Compile Include="Alphas\PairsTradingAlphaModel.cs" />
+    <Compile Include="Alphas\StdDevAlphaModel.cs" />
     <Compile Include="Alphas\RsiAlphaModel.cs" />
     <Compile Include="Execution\ExecutionModel.cs" />
     <Compile Include="Execution\IExecutionModel.cs" />

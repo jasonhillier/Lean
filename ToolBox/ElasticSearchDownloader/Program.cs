@@ -91,7 +91,7 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 						quote.basePrice,
 						quote.basePrice,
 						quote.basePrice,
-						0
+						quote.baseVolume
 					);
 
 					bars.Add(bar);

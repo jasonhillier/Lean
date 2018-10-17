@@ -52,6 +52,7 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 		public StockOptionQuote() : base() { }
 
 		public decimal basePrice { get; set; }
+		public int baseVolume { get; set; }
 		public double dist { get; set; }
 
 		//In-the-money

@@ -14,6 +14,7 @@
  *
 */
 
+using System;
 using System.Collections.Generic;
 using QuantConnect.Algorithm.Framework;
 using QuantConnect.Algorithm.Framework.Alphas;
@@ -35,28 +36,33 @@ namespace QuantConnect.Algorithm.CSharp
         {
             UniverseSettings.Resolution = Resolution.Minute;
 
-            SetStartDate(2013, 10, 07);
-            SetEndDate(2013, 10, 11);
-            SetCash(1000000);
+			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
+			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
+
+
+			SetStartDate(startDate);
+			SetEndDate(endDate);
+			SetCash(1000000);
 
             SetUniverseSelection(new ManualUniverseSelectionModel(
-                QuantConnect.Symbol.Create("AIG", SecurityType.Equity, Market.USA),
-                QuantConnect.Symbol.Create("BAC", SecurityType.Equity, Market.USA),
-                QuantConnect.Symbol.Create("IBM", SecurityType.Equity, Market.USA),
-                QuantConnect.Symbol.Create("SPY", SecurityType.Equity, Market.USA)
+                //QuantConnect.Symbol.Create("AIG", SecurityType.Equity, Market.USA),
+                //QuantConnect.Symbol.Create("BAC", SecurityType.Equity, Market.USA),
+                //QuantConnect.Symbol.Create("IBM", SecurityType.Equity, Market.USA),
+                QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA)
             ));
 
-            // using hourly rsi to generate more insights
-            SetAlpha(new RsiAlphaModel(14, Resolution.Hour));
+			// using hourly rsi to generate more insights
+			//SetAlpha(new RsiAlphaModel(14, Resolution.Hour));
+			SetAlpha(new StdDevAlphaModel(200, UniverseSettings.Resolution, .2m));
             SetPortfolioConstruction(new EqualWeightingPortfolioConstructionModel());
-            SetExecution(new VolumeWeightedAveragePriceExecutionModel());
+			SetExecution(new VolumeWeightedAveragePriceExecutionModel());
 
-            InsightsGenerated += (algorithm, data) => Log($"{Time}: {string.Join(" | ", data.Insights)}");
+            InsightsGenerated += (algorithm, data) => Log($"{Time}: INSIGHT>> {string.Join(" | ", data.Insights)}");
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
         {
-            Log($"{Time}: {orderEvent}");
+            Log($"{Time}: ORDER_EVENT: {orderEvent}");
         }
 
         /// <summary>

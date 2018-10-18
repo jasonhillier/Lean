@@ -13,8 +13,10 @@
  * limitations under the License.
 */
 
+using System;
 using System.Collections.Generic;
 using QuantConnect.Data;
+using QuantConnect.Data.Consolidators;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Indicators;
 using QuantConnect.Util;
@@ -30,7 +32,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
         private readonly int _period;
-        private readonly Resolution _resolution;
+        private readonly TimeSpan _resolution;
 		private readonly decimal _threshold;
 		private readonly decimal _step;
 		private readonly bool _inverted;
@@ -39,8 +41,8 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 		/// Initializes a new instance of the <see cref="StdDevAlphaModel"/> class
 		/// </summary>
 		public StdDevAlphaModel(
-            int period = 200,
-            Resolution resolution = Resolution.Minute,
+			TimeSpan resolution,
+			int period = 20,
 			decimal threshold = 0.2m,
 			decimal step = 0.1m,
 			bool inverted = false
@@ -73,7 +75,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 
                 if (state != previousState && std.IsReady)
                 {
-                    var insightPeriod = _resolution.ToTimeSpan().Multiply(_period);
+                    var insightPeriod = _resolution.Multiply(_period);
 
                     switch (state)
                     {
@@ -123,8 +125,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             {
                 if (!_symbolDataBySymbol.ContainsKey(added.Symbol))
                 {
-                    var std = algorithm.STD(added.Symbol, _period, _resolution);
-                    var symbolData = new SymbolData(added.Symbol, std);
+					var symbolData = new SymbolData(algorithm, added.Symbol, _resolution, _period);
                     _symbolDataBySymbol[added.Symbol] = symbolData;
                     addedSymbols.Add(symbolData.Symbol);
                 }
@@ -133,7 +134,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             if (addedSymbols.Count > 0)
             {
                 // warmup our indicators by pushing history through the consolidators
-                algorithm.History(addedSymbols, _period, _resolution)
+                algorithm.History(addedSymbols, _resolution.Multiply(_period))
                     .PushThrough(data =>
                     {
                         SymbolData symbolData;
@@ -170,12 +171,15 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         {
             public Symbol Symbol { get; }
             public State State { get; set; }
-            public StandardDeviation STD { get; }
+			public readonly IDataConsolidator Consolidator;
+			public StandardDeviation STD { get; }
 
-            public SymbolData(Symbol symbol, StandardDeviation std)
+            public SymbolData(QCAlgorithmFramework algorithm, Symbol symbol, TimeSpan resolution, int period)
             {
                 Symbol = symbol;
-                STD = std;
+				STD = new StandardDeviation(period);
+				algorithm.RegisterIndicator(Symbol, STD, resolution);//, null); //, Consolidator);
+
                 State = State.Neutral;
             }
         }

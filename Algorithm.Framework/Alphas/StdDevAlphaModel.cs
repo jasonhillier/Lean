@@ -51,7 +51,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             _period = period;
             _resolution = resolution;
 			_threshold = threshold;
-            _step = step == 0 ? threshold : step;
+            _step = step == 0 ? threshold/2 : step;
 			_inverted = inverted;
 			Name = $"{nameof(StdDevAlphaModel)}({_period},{_resolution})";
         }
@@ -75,7 +75,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 double mag;
                 var state = GetState(std, out mag);
 
-                if ((state != previousState || mag != previousMag) && std.IsReady)
+                if ((state != previousState || mag > previousMag) && std.IsReady)
                 {
                     var insightPeriod = _resolution.Multiply(_period);
 
@@ -125,9 +125,12 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             {
                 if (!_symbolDataBySymbol.ContainsKey(added.Symbol))
                 {
-					var symbolData = new SymbolData(algorithm, added.Symbol, _resolution, _period);
-                    _symbolDataBySymbol[added.Symbol] = symbolData;
-                    addedSymbols.Add(symbolData.Symbol);
+                    if (!added.Symbol.HasUnderlying) //ignore derivatives
+                    {
+                        var symbolData = new SymbolData(algorithm, added.Symbol, _resolution, _period);
+                        _symbolDataBySymbol[added.Symbol] = symbolData;
+                        addedSymbols.Add(symbolData.Symbol);
+                    }
                 }
             }
 

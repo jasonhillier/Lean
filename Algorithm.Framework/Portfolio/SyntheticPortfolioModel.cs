@@ -44,12 +44,22 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             List<IPortfolioTarget> closingTargets = new List<IPortfolioTarget>();
             optionHoldings.All(p =>
             {
-                //puts close if not going down
-                if (p.Symbol.ID.OptionRight == OptionRight.Put && insight.Direction != InsightDirection.Down)
-                    closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
-                //calls close if not going up
-                if (p.Symbol.ID.OptionRight == OptionRight.Call && insight.Direction != InsightDirection.Up)
-                    closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                if (insight.Direction != InsightDirection.Down)
+                {
+                    //if NOT going down, close any synthetic shorts
+                    if (p.Symbol.ID.OptionRight == OptionRight.Put && p.IsLong)
+                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                    if (p.Symbol.ID.OptionRight == OptionRight.Call && p.IsShort)
+                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                }
+                else if (insight.Direction != InsightDirection.Up)
+                {
+                    //if NOT going up, close any synthetic longs
+                    if (p.Symbol.ID.OptionRight == OptionRight.Put && p.IsShort)
+                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                    if (p.Symbol.ID.OptionRight == OptionRight.Call && p.IsLong)
+                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                }
                 return true;
             });
 
@@ -58,28 +68,43 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
         public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
-            OptionChain chain;
-            if (!this.TryGetOptionChain(algorithm, symbol, out chain))
-                return null;
             if (insight.Direction == InsightDirection.Flat)
                 return null;
 
             int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
 
-            var right = insight.Direction == InsightDirection.Down ? OptionRight.Put : OptionRight.Call;
+            var targets = new List<IPortfolioTarget>();
 
-            var option = chain
-                .Where(o => o.Right == right)
-                //check if OTM
-                .Where(o => (right == OptionRight.Put ? o.Strike < chain.Underlying.Price : o.Strike > chain.Underlying.Price))
-                //earliest upcoming expiry
-                .OrderBy(x => x.Expiry)
-                //sort by distance from atm
-                .ThenBy(x => Math.Abs(chain.Underlying.Price - x.Strike))
-                .Take(1).First();
+            if (insight.Direction == InsightDirection.Down)
+            {
+                var puts = this.GetITM(algorithm, symbol, OptionRight.Put);
+                var calls = this.GetOTM(algorithm, symbol, OptionRight.Call);
 
+                if (puts == null || calls == null || puts.First().Strike != calls.First().Strike)
+                {
+                    algorithm.Log("Option alignment error!");
+                    return null;
+                }
 
-            return new List<IPortfolioTarget> { new PortfolioTarget(option.Symbol, this.PositionSize * mag) };
+                targets.Add(new PortfolioTarget(puts.First().Symbol, this.PositionSize * mag));
+                targets.Add(new PortfolioTarget(calls.First().Symbol, -this.PositionSize * mag));
+            }
+            else if (insight.Direction == InsightDirection.Up)
+            {
+                var puts = this.GetOTM(algorithm, symbol, OptionRight.Put);
+                var calls = this.GetITM(algorithm, symbol, OptionRight.Call);
+
+                if (puts == null || calls == null || puts.First().Strike != calls.First().Strike)
+                {
+                    algorithm.Log("Option alignment error!");
+                    return null;
+                }
+
+                targets.Add(new PortfolioTarget(puts.First().Symbol, -this.PositionSize * mag));
+                targets.Add(new PortfolioTarget(calls.First().Symbol, this.PositionSize * mag));
+            }
+
+            return targets;
         }
     }
 }

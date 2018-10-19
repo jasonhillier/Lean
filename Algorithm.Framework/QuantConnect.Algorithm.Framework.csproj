@@ -109,6 +109,7 @@
     <Compile Include="Portfolio\OTMLottoPortfolioModel.cs" />
     <Compile Include="Portfolio\BasePortfolioModel.cs" />
     <Compile Include="Portfolio\BaseOptionPortfolioModel.cs" />
+    <Compile Include="Portfolio\SyntheticPortfolioModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">

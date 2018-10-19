@@ -13,6 +13,7 @@
  * limitations under the License.
 */
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Algorithm.Framework.Alphas;
@@ -33,6 +34,19 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     {
         public int PositionSize = 1; //TODO make smarter
         protected Dictionary<Symbol, Option> _OptionSymbols = new Dictionary<Symbol, Option>();
+        private readonly Func<OptionFilterUniverse,OptionFilterUniverse> _OptionFilter;
+
+        public BaseOptionPortfolioModel(Func<OptionFilterUniverse,OptionFilterUniverse> optionFilter)
+        {
+            _OptionFilter = optionFilter;
+            if (_OptionFilter == null)
+            {
+                _OptionFilter = (o) => {
+                    return o.Strikes(-10, 20)
+                            .Expiration(TimeSpan.FromDays(2), TimeSpan.FromDays(31));
+                };
+            }
+        }
 
         public IEnumerable<OptionHolding> GetOptionHoldings(QCAlgorithmFramework algorithm, Symbol underlyingSymbol)
         {
@@ -68,6 +82,56 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol.Symbol.Value, out chain);
         }
 
+        /// <summary>
+        /// Get ITM options for nearest available expiration.
+        /// </summary>
+        public IOrderedEnumerable<OptionContract> GetITM(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, OptionRight right, int expiryDistance = 0)
+        {
+            IOrderedEnumerable<OptionContract> selected = this.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
+            if (selected == null)
+                return null;
+
+            return selected
+                .Where(o => o.Right == right)
+                //check if ITM
+                .Where(o => (right == OptionRight.Put ? o.Strike > o.UnderlyingLastPrice : o.Strike < o.UnderlyingLastPrice))
+                //sort by distance from itm
+                .OrderBy(o => Math.Abs(o.Strike - o.UnderlyingLastPrice));
+        }
+
+        /// <summary>
+        /// Get OTM options for nearest available expiration.
+        /// </summary>
+        public IOrderedEnumerable<OptionContract> GetOTM(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, OptionRight right, int expiryDistance = 0)
+        {
+            IOrderedEnumerable<OptionContract> selected = this.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
+            if (selected == null)
+                return null;
+
+            return selected
+                .Where(o => o.Right == right)
+                //check if OTM
+                .Where(o => (right == OptionRight.Put ? o.Strike < o.UnderlyingLastPrice : o.Strike > o.UnderlyingLastPrice))
+                //sort by distance from atm
+                .OrderBy(o => Math.Abs(o.UnderlyingLastPrice - o.Strike));
+        }
+
+        /// <summary>
+        /// Get all available options for target expiration.
+        /// </summary>
+        public IOrderedEnumerable<OptionContract> GetOptionsForExpiry(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, int expiryDistance)
+        {
+            OptionChain chain;
+            if (!this.TryGetOptionChain(algorithim, underlyingSymbol, out chain))
+            {
+                return null;
+            }
+
+            return chain
+                    //earliest upcoming expiry
+                    .OrderBy(x => x.Expiry);
+        }
+
         public override void OnSecuritiesChanged(QCAlgorithmFramework algorithm, SecurityChanges changes)
         {
             base.OnSecuritiesChanged(algorithm, changes);
@@ -76,7 +140,11 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             {
                 if (s.Symbol.SecurityType == SecurityType.Equity)
                 {
-                    _OptionSymbols[s.Symbol] = algorithm.AddOption(s.Symbol, s.Resolution);
+                    var option = algorithm.AddOption(s.Symbol, s.Resolution);
+                    _OptionSymbols[s.Symbol] = option;
+
+                    // set our strike/expiry filter for this option chain
+                    option.SetFilter(u=>_OptionFilter(u));
                 }
             }
         }

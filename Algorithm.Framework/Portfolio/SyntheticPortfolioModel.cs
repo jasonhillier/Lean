@@ -27,14 +27,11 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     /// <summary>
     /// Opens an OTM put if going down, or an OTM call if going up.
     /// </summary>
-    public class OTMLottoPortfolioModel : BaseOptionPortfolioModel
+    public class SyntheticPortfolioModel : BaseOptionPortfolioModel
     {
-        private readonly int _distance;
-
-        public OTMLottoPortfolioModel(Func<OptionFilterUniverse, OptionFilterUniverse> optionFilter, int distance = 2)
+        public SyntheticPortfolioModel(Func<OptionFilterUniverse, OptionFilterUniverse> optionFilter)
             : base(optionFilter)
         {
-            _distance = distance;
         }
 
         /// <summary>
@@ -61,6 +58,9 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
         public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
+            OptionChain chain;
+            if (!this.TryGetOptionChain(algorithm, symbol, out chain))
+                return null;
             if (insight.Direction == InsightDirection.Flat)
                 return null;
 
@@ -68,14 +68,16 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
             var right = insight.Direction == InsightDirection.Down ? OptionRight.Put : OptionRight.Call;
 
-            var options = this.GetOTM(algorithm, symbol, OptionRight.Put);
-            if (options == null || options.Count() <= _distance)
-            {
-                algorithm.Log("WARN: No options matching criteria found!");
-                return null;
-            }
+            var option = chain
+                .Where(o => o.Right == right)
+                //check if OTM
+                .Where(o => (right == OptionRight.Put ? o.Strike < chain.Underlying.Price : o.Strike > chain.Underlying.Price))
+                //earliest upcoming expiry
+                .OrderBy(x => x.Expiry)
+                //sort by distance from atm
+                .ThenBy(x => Math.Abs(chain.Underlying.Price - x.Strike))
+                .Take(1).First();
 
-            var option = options.ElementAt(_distance);
 
             return new List<IPortfolioTarget> { new PortfolioTarget(option.Symbol, this.PositionSize * mag) };
         }

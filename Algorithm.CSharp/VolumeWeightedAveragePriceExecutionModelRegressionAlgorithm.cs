@@ -53,7 +53,7 @@ namespace QuantConnect.Algorithm.CSharp
 
 			// using hourly rsi to generate more insights
 			//SetAlpha(new RsiAlphaModel(14, Resolution.Hour));
-			SetAlpha(new StdDevAlphaModel(new TimeSpan(0, 15, 0), 20, 4));
+			SetAlpha(new StdDevAlphaModel(new TimeSpan(0, 15, 0), 20, 2));
             SetPortfolioConstruction(new OTMLottoPortfolioModel());
 			//SetExecution(new VolumeWeightedAveragePriceExecutionModel());
 

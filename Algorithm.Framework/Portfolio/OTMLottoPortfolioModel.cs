@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Algorithm.Framework.Alphas;
+using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Option;
@@ -59,11 +60,14 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
         public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
-            Option optionSymbol;
-            if (!_OptionSymbols.TryGetValue(symbol, out optionSymbol))
-                return null; //log error?
+            OptionChain chain;
+            if (!this.TryGetOptionChain(algorithm, symbol, out chain))
+                return null;
+            if (insight.Direction == InsightDirection.Flat)
+                return null;
 
-            var chain = algorithm.CurrentSlice.OptionChains[optionSymbol.Symbol.Value];
+            int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
+
             var right = insight.Direction == InsightDirection.Down ? OptionRight.Put : OptionRight.Call;
 
             var option = chain
@@ -77,7 +81,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                 .Take(_distance).First();
 
 
-            return new List<IPortfolioTarget> { new PortfolioTarget(option.Symbol, this.PositionSize) };
+            return new List<IPortfolioTarget> { new PortfolioTarget(option.Symbol, this.PositionSize * mag) };
         }
     }
 }

@@ -16,6 +16,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Algorithm.Framework.Alphas;
+using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Option;
@@ -51,6 +52,20 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             });
 
             return holdings;
+        }
+
+        public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
+        {
+            chain = null;
+            Option optionSymbol;
+            if (!_OptionSymbols.TryGetValue(underlyingSymbol, out optionSymbol))
+                return false;
+
+            if (algorithm.CurrentSlice == null ||
+                algorithm.CurrentSlice.OptionChains == null)
+                return false;
+
+            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol.Symbol.Value, out chain);
         }
 
         public override void OnSecuritiesChanged(QCAlgorithmFramework algorithm, SecurityChanges changes)

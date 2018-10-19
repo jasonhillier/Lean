@@ -33,8 +33,8 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 
         private readonly int _period;
         private readonly TimeSpan _resolution;
-		private readonly decimal _threshold;
-		private readonly decimal _step;
+		private readonly double _threshold;
+        private readonly double _step;
 		private readonly bool _inverted;
 
 		/// <summary>
@@ -43,15 +43,15 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 		public StdDevAlphaModel(
 			TimeSpan resolution,
 			int period = 20,
-			decimal threshold = 0.2m,
-			decimal step = 0.1m,
+            double threshold = 0.2d,
+            double step = 0,
 			bool inverted = false
             )
         {
             _period = period;
             _resolution = resolution;
 			_threshold = threshold;
-			_step = step;
+            _step = step == 0 ? threshold : step;
 			_inverted = inverted;
 			Name = $"{nameof(StdDevAlphaModel)}({_period},{_resolution})";
         }
@@ -71,9 +71,11 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 var symbol = kvp.Key;
                 var std = kvp.Value.STD;
                 var previousState = kvp.Value.State;
-                var state = GetState(std, previousState);
+                var previousMag = kvp.Value.Mag;
+                double mag;
+                var state = GetState(std, out mag);
 
-                if (state != previousState && std.IsReady)
+                if ((state != previousState || mag != previousMag) && std.IsReady)
                 {
                     var insightPeriod = _resolution.Multiply(_period);
 
@@ -83,15 +85,13 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 							insights.Add(Insight.Price(symbol, insightPeriod, InsightDirection.Flat));
 							break;
 						case State.TrippedHigh:
-                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down));
+                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down, mag));
                             break;
-						case State.TrippedExtraHigh:
-							insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down));
-							break;
 					}
                 }
 
                 kvp.Value.State = state;
+                kvp.Value.Mag = mag;
             }
 
             return insights;
@@ -150,16 +150,15 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         /// Determines the new state. This is basically cross-over detection logic that
         /// includes considerations for bouncing using the configured bounce tolerance.
         /// </summary>
-        private State GetState(StandardDeviation std, State previous)
+        private State GetState(StandardDeviation std, out double mag)
         {
+            mag = 0;
+
             if (std >= _threshold)
             {
+                mag = Math.Round(1 + (((double)std.Current.Value - _threshold)) / _step);
                 return State.TrippedHigh;
             }
-			if (std >= _threshold + _step)
-			{
-				return State.TrippedExtraHigh;
-			}
 
 			return State.Neutral;
         }
@@ -173,11 +172,13 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             public State State { get; set; }
 			public readonly IDataConsolidator Consolidator;
 			public StandardDeviation STD { get; }
+            public double Mag { get; set; }
 
             public SymbolData(QCAlgorithmFramework algorithm, Symbol symbol, TimeSpan resolution, int period)
             {
                 Symbol = symbol;
 				STD = new StandardDeviation(period);
+                Mag = 0;
 				algorithm.RegisterIndicator(Symbol, STD, resolution);//, null); //, Consolidator);
 
                 State = State.Neutral;
@@ -190,8 +191,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         private enum State
         {
             Neutral,
-            TrippedHigh,
-			TrippedExtraHigh
+            TrippedHigh
 		}
     }
 }

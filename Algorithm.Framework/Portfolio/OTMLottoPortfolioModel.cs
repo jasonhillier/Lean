@@ -1,0 +1,83 @@
+﻿/*
+ * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+ * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using QuantConnect.Algorithm.Framework.Alphas;
+using QuantConnect.Data.UniverseSelection;
+using QuantConnect.Securities;
+using QuantConnect.Securities.Option;
+
+namespace QuantConnect.Algorithm.Framework.Portfolio
+{
+    /// <summary>
+    /// Opens an OTM put if going down, or an OTM call if going up.
+    /// </summary>
+    public class OTMLottoPortfolioModel : BaseOptionPortfolioModel
+    {
+        private readonly int _distance;
+
+        public OTMLottoPortfolioModel(int distance = 2)
+        {
+            _distance = distance;
+        }
+
+        /// <summary>
+        /// When a new insight comes in, close down anything that might be open.
+        /// </summary>
+        public override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+        {
+            var optionHoldings = GetOptionHoldings(algorithm, symbol);
+
+            List<IPortfolioTarget> closingTargets = new List<IPortfolioTarget>();
+            optionHoldings.All(p =>
+            {
+                //puts close if not going down
+                if (p.Symbol.ID.OptionRight == OptionRight.Put && insight.Direction != InsightDirection.Down)
+                    closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                //calls close if not going up
+                if (p.Symbol.ID.OptionRight == OptionRight.Call && insight.Direction != InsightDirection.Up)
+                    closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
+                return true;
+            });
+
+            return closingTargets;
+        }
+
+        public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+        {
+            Option optionSymbol;
+            if (!_OptionSymbols.TryGetValue(symbol, out optionSymbol))
+                return null; //log error?
+
+            var chain = algorithm.CurrentSlice.OptionChains[optionSymbol.Symbol.Value];
+            var right = insight.Direction == InsightDirection.Down ? OptionRight.Put : OptionRight.Call;
+
+            var option = chain
+                .Where(o => o.Right == right)
+                //check if OTM
+                .Where(o => (right == OptionRight.Put ? o.Strike < chain.Underlying.Price : o.Strike > chain.Underlying.Price))
+                //earliest upcoming expiry
+                .OrderBy(x => x.Expiry)
+                //sort by distance from atm
+                .ThenBy(x => Math.Abs(chain.Underlying.Price - x.Strike))
+                .Take(_distance).First();
+
+
+            return new List<IPortfolioTarget> { new PortfolioTarget(option.Symbol, this.PositionSize) };
+        }
+    }
+}

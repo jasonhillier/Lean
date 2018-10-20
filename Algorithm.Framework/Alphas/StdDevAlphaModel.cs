@@ -150,8 +150,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         }
 
         /// <summary>
-        /// Determines the new state. This is basically cross-over detection logic that
-        /// includes considerations for bouncing using the configured bounce tolerance.
+        /// Determines the new state.
         /// </summary>
         private State GetState(StandardDeviation std, out double mag)
         {

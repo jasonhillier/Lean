@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using QuantConnect.Data;
 using QuantConnect.Data.Consolidators;
+using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Indicators;
 using QuantConnect.Util;
@@ -27,9 +28,9 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class StdDevAlphaModel : IndicatorThresholdAlphaModel<PriceStandardDeviation>
+    public class VWAPStdDevAlphaModel : IndicatorThresholdAlphaModel<VWAPStandardDeviation>
     {
-        public StdDevAlphaModel(
+        public VWAPStdDevAlphaModel(
             TimeSpan resolution,
             int period = 20,
             double threshold = 0.2d,

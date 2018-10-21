@@ -61,7 +61,7 @@ namespace QuantConnect.Algorithm.Framework.Execution
                 }
             }
 
-            //TODO: try resubmitting the order at a closer spread as time goes by before cancelling.
+            //TODO: try resubmitting the order to close the spread as time goes by before cancelling.
 
             //cancel any orders that haven't filled within the hour
             foreach(var order in algorithm.Transactions.GetOpenOrders(o => (algorithm.CurrentSlice.Time - o.CreatedTime).TotalMinutes > 45))

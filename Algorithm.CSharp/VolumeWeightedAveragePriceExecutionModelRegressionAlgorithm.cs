@@ -54,7 +54,7 @@ namespace QuantConnect.Algorithm.CSharp
 			// using hourly rsi to generate more insights
 			//SetAlpha(new RsiAlphaModel(14, Resolution.Hour));
 			SetAlpha(new VWAPStdDevAlphaModel(new TimeSpan(0, 15, 0), 20, 1.5));
-            SetPortfolioConstruction(new SyntheticPortfolioModel(null));
+            SetPortfolioConstruction(new RiskReversalPortfolioModel());
             SetExecution(new MidOptionExecutionModel());
 
             InsightsGenerated += (algorithm, data) => Log($"{Time}: INSIGHT>> {string.Join(" | ", data.Insights)}");

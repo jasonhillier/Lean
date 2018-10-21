@@ -34,7 +34,12 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     {
         public int PositionSize = 1; //TODO make smarter
         protected Dictionary<Symbol, Option> _OptionSymbols = new Dictionary<Symbol, Option>();
-        private readonly Func<OptionFilterUniverse,OptionFilterUniverse> _OptionFilter;
+        protected Func<OptionFilterUniverse,OptionFilterUniverse> _OptionFilter;
+
+        public BaseOptionPortfolioModel()
+            : this(null)
+        {
+        }
 
         public BaseOptionPortfolioModel(Func<OptionFilterUniverse,OptionFilterUniverse> optionFilter)
         {

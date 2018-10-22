@@ -1,0 +1,127 @@
+/*
+ * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+ * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using QuantConnect.Algorithm.Framework;
+using QuantConnect.Algorithm.Framework.Alphas;
+using QuantConnect.Algorithm.Framework.Execution;
+using QuantConnect.Algorithm.Framework.Portfolio;
+using QuantConnect.Algorithm.Framework.Selection;
+using QuantConnect.Orders;
+
+namespace QuantConnect.Algorithm.CSharp
+{
+    /// <summary>
+    /// Regression algorithm for the VolumeWeightedAveragePriceExecutionModel.
+    /// This algorithm shows how the execution model works to split up orders and submit them only when
+    /// the price is on the favorable side of the intraday VWAP.
+    /// </summary>
+    public class DynamicAlgorithim : QCAlgorithmFramework
+    {
+        public override void Initialize()
+        {
+            UniverseSettings.Resolution = Resolution.Minute;
+
+			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
+			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
+
+
+			SetStartDate(startDate);
+			SetEndDate(endDate);
+			SetCash(1000000);
+
+            SetUniverseSelection(new ManualUniverseSelectionModel(
+                //QuantConnect.Symbol.Create("AIG", SecurityType.Equity, Market.USA),
+                //QuantConnect.Symbol.Create("BAC", SecurityType.Equity, Market.USA),
+                //QuantConnect.Symbol.Create("IBM", SecurityType.Equity, Market.USA),
+                QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA)
+            ));
+
+            var alphaModel = GetParameter("alpha-model");
+            var portfolioModel = GetParameter("portfolio-model");
+            var executionModel = GetParameter("execution-model");
+
+            if (String.IsNullOrEmpty(portfolioModel))
+                throw new Exception("No dynamic portfolio-model type specified!");
+            if (String.IsNullOrEmpty(executionModel))
+                throw new Exception("No dynamic execution-model type specified!");
+
+            var portfolio = (IPortfolioConstructionModel)Activator.CreateInstance(FindType(portfolioModel));
+            var execution = (IExecutionModel)Activator.CreateInstance(FindType(executionModel));
+
+            this.Log("Using portfoliom model: " + portfolio.GetType().Name);
+            this.Log("Using execution model: " + execution.GetType().Name);
+
+            SetParametersOnObject("portfolio", portfolio);
+            SetParametersOnObject("execution", execution);
+
+            int period = int.Parse(GetParameter("period"));
+            double threshold = double.Parse(GetParameter("threshold"));
+
+            SetAlpha(new VWAPStdDevAlphaModel(new TimeSpan(0, 15, 0), period, threshold));
+            SetPortfolioConstruction(portfolio);
+            SetExecution(execution);
+
+            InsightsGenerated += (algorithm, data) => Log($"{Time}: INSIGHT>> {string.Join(" | ", data.Insights)}");
+        }
+
+        public override void OnOrderEvent(OrderEvent orderEvent)
+        {
+            //TODO: option to only have single position
+            Log($"{Time}: ORDER_EVENT: {orderEvent}");
+        }
+
+        public override void OnAssignmentOrderEvent(OrderEvent assignmentEvent)
+        {
+            //TODO: close assigned positions
+            base.OnAssignmentOrderEvent(assignmentEvent);
+        }
+
+        private void SetParametersOnObject(string domain, object o)
+        {
+            foreach(PropertyInfo prop in o.GetType().GetProperties())
+            {
+                if (prop.CanWrite)
+                {
+                    var paramVal = GetParameter(domain + "-" + prop.Name.ToLower());
+                    if (string.IsNullOrEmpty(paramVal))
+                        paramVal = GetParameter(domain + "-" + prop.Name);
+
+                    if (!string.IsNullOrEmpty(paramVal))
+                    {
+                        prop.SetValue(o, paramVal);
+                    }
+                }
+            }
+        }
+
+        private Type FindType(string Name)
+        {
+            foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                foreach (Type t in a.GetTypes())
+                {
+                    if (t.Name == Name)
+                        return t;
+                }
+            }
+
+            return null;
+        }
+    }
+}

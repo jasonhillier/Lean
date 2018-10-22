@@ -35,7 +35,12 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
         protected int _MinDaysRemaining;
         protected int _MaxDaysRemaining;
 
-        public RiskReversalPortfolioModel(int AtmSpread = 2, int MinDaysRemaining = 2, int MaxDaysRemaining = 20)
+        public RiskReversalPortfolioModel()
+            : this(2,2,20)
+        {
+        }
+
+        public RiskReversalPortfolioModel(int AtmSpread, int MinDaysRemaining, int MaxDaysRemaining)
         {
             this._AtmSpread = AtmSpread;
             this._MinDaysRemaining = MinDaysRemaining;

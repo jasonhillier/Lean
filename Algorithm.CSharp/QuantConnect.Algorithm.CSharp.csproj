@@ -213,6 +213,7 @@
     <Compile Include="CoveredOptionsAlgorithim.cs" />
     <Compile Include="OptionStrategy\OptionTraverseStrategy.cs" />
     <Compile Include="OptionsTraverseAlgo.cs" />
+    <Compile Include="DynamicAlgorithim.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm.Framework\QuantConnect.Algorithm.Framework.csproj">

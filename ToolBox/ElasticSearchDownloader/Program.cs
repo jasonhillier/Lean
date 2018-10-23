@@ -25,12 +25,16 @@ using Nest;
 using System.Threading.Tasks;
 using System.Linq;
 using QuantConnect.ToolBox.IBConverter;
+using System.Collections.Concurrent;
 
 namespace QuantConnect.ToolBox.ElasticSearchDownloader
 {
 	class Program
 	{
 		private static ElasticClient _client;
+        private static ConcurrentQueue<StockOptionQuote> _StockBuffer = new ConcurrentQueue<StockOptionQuote>();
+        private static ConcurrentQueue<StockOptionQuote> _OptionBuffer = new ConcurrentQueue<StockOptionQuote>();
+        private static bool _downloadComplete;
 		/// <summary>
 		/// QuantConnect Google Downloader For LEAN Algorithmic Trading Engine.
 		/// Original by @chrisdk2015, tidied by @jaredbroad
@@ -55,18 +59,18 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 				.EnableHttpCompression()
 				);
 
-			//import the whole index
-			var quotes = FetchQuotes<StockOptionQuote>(args[0], DateTime.Now, DateTime.Now).Result;
+            //import the whole index
+            Task.Run(() => beginFetchQuotes<StockOptionQuote>(args[0], DateTime.Now, DateTime.Now));
 
-			importEquity(quotes);
-			importOptions(quotes);
+            Task.Run(() => beginImportEquity(args[0]));
+            //only wait for the last one
+            Task.Run(() => importOptions(args[0]));
 
-			Console.ReadLine();
+            Console.ReadLine();
 		}
 
-        private static void importEquity(IReadOnlyCollection<StockOptionQuote> quotes)
+        private async static Task beginImportEquity(string symbol)
         {
-			var symbol = quotes.First().baseSymbol;
             //TimeSpan timeSpan = new TimeSpan(0, 15, 0);
             var symbolObject = Symbol.Create(symbol, SecurityType.Equity, Market.USA);
 
@@ -75,16 +79,33 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 			// Load settings from config.json
 			var dataDirectory = Config.Get("data-directory", "../../../Data");
 
-			var bars = new List<BaseData>();
+            var writer = new LeanDataWriter(Resolution.Minute, symbolObject, dataDirectory);
 
 			DateTime frontierDate = DateTime.MinValue;
-            foreach(var quote in quotes)
+            int priorDay = 0;
+            List<TradeBar> pendingBars = new List<TradeBar>();
+
+            StockOptionQuote quote;
+
+            while(!_downloadComplete || _StockBuffer.Count > 0)
             {
-				if (quote.date > frontierDate)
+                await Task.Delay(0);
+                if (!_StockBuffer.TryDequeue(out quote))
+                    continue;
+
+                if (quote.date > frontierDate) //ensure data is in sane order
 				{
+                    //write chunk per day
+                    if (priorDay > 0 && priorDay != quote.date.Day)
+                    {
+                        writer.Write(pendingBars);
+                        pendingBars.Clear();
+                    }
+                    priorDay = quote.date.Day;
+
 					frontierDate = quote.date;
 
-					var bar = new TradeBar(
+                    pendingBars.Add(new TradeBar(
 						quote.date,
 						symbolObject,
 						quote.basePrice,
@@ -92,34 +113,46 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 						quote.basePrice,
 						quote.basePrice,
 						quote.baseVolume
-					);
-
-					bars.Add(bar);
+                    ));
 				}
             }
 
-			Log.Trace("Found {0} bars", bars.Count);
+            //final Flush
+            if (pendingBars.Count > 0)
+            {
+                writer.Write(pendingBars);
+                pendingBars.Clear();
+            }
 
-            var writer = new LeanDataWriter(Resolution.Minute, symbolObject, dataDirectory);
-            writer.Write(bars);
+            Log.Trace("Finished equity import");
+
         }
 
-        private static void importOptions(IReadOnlyCollection<StockOptionQuote> quotes)
+        private static async Task importOptions(string symbol)
         {
-			var underlying = quotes.First().baseSymbol;
 			TimeSpan timeSpan = new TimeSpan(0, 15, 0);
-			var underlyingSymbol = Symbol.Create(underlying, SecurityType.Equity, Market.USA);
+            var underlyingSymbol = Symbol.Create(symbol, SecurityType.Equity, Market.USA);
 
-			Log.Trace("Processing options {0}...", underlying);
+            Log.Trace("Processing options {0}...", symbol);
 
 			// Load settings from config.json
 			var dataDirectory = Config.Get("data-directory", "../../../Data");
 
-			Dictionary<string, OptionDataWriter> writers = new Dictionary<string, OptionDataWriter>();
-			foreach (var quote in quotes)
+            Dictionary<string, OptionDataWriter> dayWriters = new Dictionary<string, OptionDataWriter>();
+            StockOptionQuote quote;
+            long ticksProcessed = 0;
+            int priorDay = 0;
+
+
+            while (!_downloadComplete || _OptionBuffer.Count > 0)
 			{
+                await Task.Delay(0);
+
+                if (!_OptionBuffer.TryDequeue(out quote))
+                    continue;
+
                 var optionSymbol = Symbol.CreateOption(
-                    underlying,
+                    symbol,
                     Market.USA,
                     OptionStyle.American,
                     (quote.right == "P" ? OptionRight.Put : OptionRight.Call),
@@ -127,11 +160,12 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
                     quote.expiry
                 );
 
-				OptionDataWriter writer = null;
-				if (!writers.TryGetValue(optionSymbol.Value + "_" + quote.date.ToShortDateString(), out writer))
+                string optionFileName = optionSymbol.Value + "_" + quote.date.ToShortDateString();
+                OptionDataWriter writer;
+                if (!dayWriters.TryGetValue(optionFileName, out writer))
 				{
 					writer = new OptionDataWriter(optionSymbol, quote.date, TickType.Quote, Resolution.Minute, dataDirectory);
-					writers[optionSymbol.Value + "_" + quote.date.ToShortDateString()] = writer;
+                    dayWriters.Add(optionFileName, writer);
 				}
 
 				var bar = new QuoteBar(
@@ -144,34 +178,39 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 				);
 
 				writer.Enqueue(bar);
-				/*
-				var tick = new Tick(
-					quote.date,
-					optionSymbol,
-					(decimal)quote.mid,
-					(decimal)quote.bid,
-					(decimal)quote.ask
-					);
 
-				writer.Process(tick);
-				*/
+                if (priorDay > 0 && priorDay != quote.date.Day)
+                {
+                    //save all the files for today
+                    foreach(KeyValuePair<string, OptionDataWriter> w in dayWriters)
+                    {
+                        ticksProcessed += w.Value.SaveToDisk();
+                    }
+
+                    dayWriters.Clear();
+
+                    Log.Trace("Stored {0} option ticks...", ticksProcessed);
+                }
+                priorDay = quote.date.Day;
             }
 
-			long ticksProcessed = 0;
-			foreach(var writer in writers)
-			{
-				ticksProcessed += writer.Value.SaveToDisk();
-			}
+            //save any pending files
+            foreach (KeyValuePair<string, OptionDataWriter> w in dayWriters)
+            {
+                ticksProcessed += w.Value.SaveToDisk();
+            }
 
-			Log.Trace("Processed {0} ticks", ticksProcessed);
+
+			Log.Trace("Stored total of option {0} ticks, zipping...", ticksProcessed);
 			//zip all the files
 			OptionDataWriter.Package(dataDirectory);
+            Log.Trace("Option data stored successfully.");
         }
 
 
-		public static async Task<IReadOnlyCollection<T>> FetchQuotes<T>(string Symbol, DateTime Start, DateTime End) where T : StockOptionQuote, new()
+        public static async Task beginFetchQuotes<T>(string Symbol, DateTime Start, DateTime End) where T : StockOptionQuote, new()
 		{
-			List<T> documents = new List<T>();
+            _downloadComplete = false;
 
 			var search = await _client.SearchAsync<T>(s => s
 				.AllTypes()
@@ -196,7 +235,13 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 
 			//first page
 			string scrollId = search.ScrollId;
-			documents.AddRange(search.Documents);
+            foreach(T doc in search.Documents)
+            {
+                _StockBuffer.Enqueue(doc);
+                _OptionBuffer.Enqueue(doc);
+            }
+
+            int totalReceived = search.Documents.Count;
 
 			ISearchResponse<T> results;
 			do
@@ -205,14 +250,19 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 				results = await _client.ScrollAsync<T>(100000, scrollId);
 				scrollId = results.ScrollId;
 
-				documents.AddRange(results.Documents);
+                foreach (T doc in results.Documents)
+                {
+                    _StockBuffer.Enqueue(doc);
+                    _OptionBuffer.Enqueue(doc);
+                }
 
-				Log.Trace("Downloaded {0} so far", documents.Count);
+                totalReceived += search.Documents.Count;
+
+                Log.Trace("Downloaded {0} so far", totalReceived);
 			} while (results.Documents.Count == 10000);
 
-			Log.Trace("Retrieved {0} document objects.", documents.Count);
-
-			return documents;
+            Log.Trace("Completed download - retrieved {0} document objects.", totalReceived);
+            _downloadComplete = true;
 		}
 	}
 }

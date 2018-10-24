@@ -31,16 +31,26 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     {
         private readonly int _distance;
 
-        public OTMLottoPortfolioModel(Func<OptionFilterUniverse, OptionFilterUniverse> optionFilter, int distance = 2)
-            : base(optionFilter)
-        {
-            _distance = distance;
-        }
+		public OTMLottoPortfolioModel()
+			: this(2,2,30)
+		{
+		}
 
-        /// <summary>
-        /// When a new insight comes in, close down anything that might be open.
-        /// </summary>
-        public override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+		public OTMLottoPortfolioModel(int distance, int MinDaysRemaining, int MaxDaysRemaining)
+		{
+            _distance = distance;
+
+			//TODO: strike selector?
+			this._OptionFilter = (o) => {
+				return o.Strikes(-10, 20)
+						.Expiration(TimeSpan.FromDays(MinDaysRemaining), TimeSpan.FromDays(MaxDaysRemaining));
+			};
+		}
+
+		/// <summary>
+		/// When a new insight comes in, close down anything that might be open.
+		/// </summary>
+		public override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
             var optionHoldings = GetOptionHoldings(algorithm, symbol);
 

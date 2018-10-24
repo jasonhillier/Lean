@@ -130,7 +130,6 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
 
         private static async Task importOptions(string symbol)
         {
-			TimeSpan timeSpan = new TimeSpan(0, 15, 0);
             var underlyingSymbol = Symbol.Create(symbol, SecurityType.Equity, Market.USA);
 
             Log.Trace("Processing options {0}...", symbol);

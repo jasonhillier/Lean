@@ -22,6 +22,7 @@ using QuantConnect.Algorithm.Framework.Alphas;
 using QuantConnect.Algorithm.Framework.Execution;
 using QuantConnect.Algorithm.Framework.Portfolio;
 using QuantConnect.Algorithm.Framework.Selection;
+using QuantConnect.Data;
 using QuantConnect.Orders;
 
 namespace QuantConnect.Algorithm.CSharp
@@ -33,6 +34,8 @@ namespace QuantConnect.Algorithm.CSharp
     /// </summary>
     public class DynamicAlgorithim : QCAlgorithmFramework
     {
+		private decimal _takeProfit = 0;
+
         public override void Initialize()
         {
             UniverseSettings.Resolution = Resolution.Minute;
@@ -40,6 +43,9 @@ namespace QuantConnect.Algorithm.CSharp
 			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
 			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
 
+			decimal.TryParse(GetParameter("take-profit"), out _takeProfit);
+			if (_takeProfit > 0)
+				this.Log("take-profit set to: " + _takeProfit);
 
 			SetStartDate(startDate);
 			SetEndDate(endDate);
@@ -73,7 +79,7 @@ namespace QuantConnect.Algorithm.CSharp
             int period = int.Parse(GetParameter("period"));
             double threshold = double.Parse(GetParameter("threshold"));
 
-            SetAlpha(new VWAPStdDevAlphaModel(new TimeSpan(0, 15, 0), period, threshold));
+			SetAlpha(new VWAPStdDevAlphaModel(new TimeSpan(0, 15, 0), period, threshold));
             SetPortfolioConstruction(portfolio);
             SetExecution(execution);
 
@@ -92,7 +98,18 @@ namespace QuantConnect.Algorithm.CSharp
             base.OnAssignmentOrderEvent(assignmentEvent);
         }
 
-        private void SetParametersOnObject(string domain, object o)
+		public override void OnData(Slice slice)
+		{
+			if (_takeProfit > 0)
+			{
+				if (this.Portfolio.TotalUnrealizedProfit > this.Portfolio.TotalAbsoluteHoldingsCost * _takeProfit)
+				{
+					this.Liquidate();
+				}
+			}
+		}
+
+		private void SetParametersOnObject(string domain, object o)
         {
             foreach(PropertyInfo prop in o.GetType().GetProperties())
             {

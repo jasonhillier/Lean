@@ -66,7 +66,8 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
             //only wait for the last one
             Task.Run(() => importOptions(args[0]));
 
-            Console.ReadLine();
+            while (Console.ReadKey().KeyChar != 'q')
+                System.Threading.Thread.Sleep(1);
 		}
 
         private async static Task beginImportEquity(string symbol)

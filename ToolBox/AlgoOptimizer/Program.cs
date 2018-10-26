@@ -48,6 +48,10 @@ namespace QuantConnect.ToolBox.AlgoOptimizer
 			List<Dictionary<string, string>> generatedParameters = new List<Dictionary<string, string>>();
 
 			var parameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(Config.Get("parameter-ranges"));
+			foreach(var k in parameters)
+			{
+				Console.WriteLine(k.Key + "\t\t= " + k.Value);
+			}
 			recursivelyGenerate(parameters, generatedParameters);
 
 			Log.Trace("Generated " + generatedParameters.Count + " parameter variants");

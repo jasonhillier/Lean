@@ -34,22 +34,22 @@ namespace QuantConnect.Algorithm.CSharp
     /// </summary>
     public class DynamicAlgorithim : QCAlgorithmFramework
     {
-		private decimal _takeProfit = 0;
+        private decimal _takeProfit = 0;
 
         public override void Initialize()
         {
             UniverseSettings.Resolution = Resolution.Minute;
 
-			DateTime startDate = DateTime.Parse(GetParameter("start-date"));
-			DateTime endDate = DateTime.Parse(GetParameter("end-date"));
+            DateTime startDate = DateTime.Parse(GetParameter("start-date"));
+            DateTime endDate = DateTime.Parse(GetParameter("end-date"));
 
-			decimal.TryParse(GetParameter("take-profit"), out _takeProfit);
-			if (_takeProfit > 0)
-				this.Log("take-profit set to: " + _takeProfit);
+            decimal.TryParse(GetParameter("take-profit"), out _takeProfit);
+            if (_takeProfit > 0)
+                this.Log("take-profit set to: " + _takeProfit);
 
-			SetStartDate(startDate);
-			SetEndDate(endDate);
-			SetCash(1000000);
+            SetStartDate(startDate);
+            SetEndDate(endDate);
+            SetCash(1000000);
 
             SetUniverseSelection(new ManualUniverseSelectionModel(
                 //QuantConnect.Symbol.Create("AIG", SecurityType.Equity, Market.USA),
@@ -62,6 +62,8 @@ namespace QuantConnect.Algorithm.CSharp
             var portfolioModel = GetParameter("portfolio-model");
             var executionModel = GetParameter("execution-model");
 
+            if (String.IsNullOrEmpty(alphaModel))
+                throw new Exception("No dynamic alpha-model type specified!");
             if (String.IsNullOrEmpty(portfolioModel))
                 throw new Exception("No dynamic portfolio-model type specified!");
             if (String.IsNullOrEmpty(executionModel))
@@ -76,10 +78,15 @@ namespace QuantConnect.Algorithm.CSharp
             SetParametersOnObject("portfolio", portfolio);
             SetParametersOnObject("execution", execution);
 
-            int period = int.Parse(GetParameter("period"));
-            double threshold = double.Parse(GetParameter("threshold"));
+            int period = GetParameterAs<int>("period", 14);
+            double threshold = GetParameterAs<double>("threshold", 0);
+            double step = GetParameterAs<double>("step", 0);
+            bool inverted = GetParameterAs<bool>("inverted", false);
 
-			SetAlpha(new VWAPStdDevAlphaModel(new TimeSpan(0, 15, 0), period, threshold));
+            //TODO: need to dynamically call ctor with parameters
+            var alpha = (AlphaModel)Activator.CreateInstance(FindType(alphaModel), new TimeSpan(0, 15, 0), period, threshold, step, inverted);
+
+            SetAlpha(alpha);
             SetPortfolioConstruction(portfolio);
             SetExecution(execution);
 
@@ -98,16 +105,46 @@ namespace QuantConnect.Algorithm.CSharp
             base.OnAssignmentOrderEvent(assignmentEvent);
         }
 
-		public override void OnData(Slice slice)
-		{
-			if (_takeProfit > 0)
-			{
-				if (this.Portfolio.TotalUnrealizedProfit > this.Portfolio.TotalAbsoluteHoldingsCost * _takeProfit)
-				{
-					this.Liquidate();
-				}
-			}
-		}
+        public override void OnData(Slice slice)
+        {
+            if (_takeProfit > 0)
+            {
+                if (this.Portfolio.TotalUnrealizedProfit > this.Portfolio.TotalAbsoluteHoldingsCost * _takeProfit)
+                {
+                    this.Liquidate();
+                }
+            }
+        }
+
+        private T GetParameterAs<T>(string parameterName, T defaultValue)
+        {
+            var paramValue = GetParameter(parameterName);
+            if (string.IsNullOrEmpty(paramValue))
+                return defaultValue;
+
+            if (typeof(T) == typeof(bool))
+            {
+                return (T)(object)bool.Parse(paramValue);
+            }
+            if (typeof(T) == typeof(int))
+            {
+                return (T)(object)int.Parse(paramValue);
+            }
+            if (typeof(T) == typeof(Double))
+            {
+                return (T)(object)double.Parse(paramValue);
+            }
+            if (typeof(T) == typeof(Decimal))
+            {
+                return (T)(object)decimal.Parse(paramValue);
+            }
+            if (typeof(T) == typeof(string))
+            {
+                return (T)(object)paramValue;
+            }
+
+            throw new Exception("cast type not supported!");
+        }
 
 		private void SetParametersOnObject(string domain, object o)
         {

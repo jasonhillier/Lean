@@ -115,6 +115,7 @@
     <Compile Include="Alphas\IndicatorBaseAlphaModel.cs" />
     <Compile Include="Portfolio\RiskReversalPortfolioModel.cs" />
     <Compile Include="Alphas\RelativeStrengthAlphaModel.cs" />
+    <Compile Include="Alphas\IVStdAlphaModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">

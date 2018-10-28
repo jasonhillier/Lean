@@ -59,7 +59,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             _resolution = resolution;
             _threshold = threshold;
             _lowThreshold = Math.Abs(1 - _threshold);
-            _step = (step == 0) ? threshold / 10 : step;
+            _step = (step == 0) ? threshold / 2 : step;
             _inverted = inverted;
 
             Name = $"{nameof(IVStdAlphaModel)}({_period},{_resolution})";

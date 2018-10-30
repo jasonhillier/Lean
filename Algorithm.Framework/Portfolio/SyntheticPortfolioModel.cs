@@ -29,11 +29,6 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     /// </summary>
     public class SyntheticPortfolioModel : BaseOptionPortfolioModel
     {
-        public SyntheticPortfolioModel(Func<OptionFilterUniverse, OptionFilterUniverse> optionFilter)
-            : base(optionFilter)
-        {
-        }
-
         /// <summary>
         /// When a new insight comes in, close down anything that might be open.
         /// </summary>

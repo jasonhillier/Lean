@@ -75,7 +75,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                 var puts = this.GetITM(algorithm, symbol, OptionRight.Put);
                 var calls = this.GetOTM(algorithm, symbol, OptionRight.Call);
 
-                if (puts == null || calls == null || puts.First().Strike != calls.First().Strike)
+                if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
                 {
                     algorithm.Log("Option alignment error!");
                     return null;
@@ -89,7 +89,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                 var puts = this.GetOTM(algorithm, symbol, OptionRight.Put);
                 var calls = this.GetITM(algorithm, symbol, OptionRight.Call);
 
-                if (puts == null || calls == null || puts.First().Strike != calls.First().Strike)
+                if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
                 {
                     algorithm.Log("Option alignment error!");
                     return null;

@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using QuantConnect.Data;
+using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 
 namespace QuantConnect.Algorithm.Framework.Alphas
@@ -34,6 +35,24 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         {
             Name = Guid.NewGuid().ToString();
         }
+
+		//TODO: turn this into an indicator
+		/// <summary>
+		/// Returns the average IV for a set of options.
+		/// </summary>
+		/// <param name="chain"></param>
+		/// <returns></returns>
+		public decimal AverageIV(IEnumerable<OptionContract> chain)
+		{
+			decimal iv = 0;
+			int count = 0;
+			foreach(var option in chain)
+			{
+				count++;
+				iv += option.ImpliedVolatility;
+			}
+			return count == 0 ? 0 : (iv / count);
+		}
 
         /// <summary>
         /// Updates this alpha model with the latest data from the algorithm.

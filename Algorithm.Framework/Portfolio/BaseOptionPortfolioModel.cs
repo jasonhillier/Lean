@@ -47,8 +47,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             if (_OptionFilter == null)
             {
                 _OptionFilter = (o) => {
-                    return o.Strikes(-10, 20)
-                            .Expiration(TimeSpan.FromDays(2), TimeSpan.FromDays(31));
+                    return o.Expiration(TimeSpan.FromDays(2), TimeSpan.FromDays(31));
                 };
             }
         }

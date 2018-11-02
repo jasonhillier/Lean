@@ -29,7 +29,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class IVStdAlphaModel : AlphaModel
+    public class IVSkewStdAlphaModel : AlphaModel
     {
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
@@ -47,7 +47,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         /// </summary>
         /// <param name="period">The RSI indicator period</param>
         /// <param name="resolution">The resolution of data sent into the RSI indicator</param>
-        public IVStdAlphaModel(
+        public IVSkewStdAlphaModel(
             TimeSpan resolution,
             int period = 14,
             double threshold = 0.7,
@@ -62,7 +62,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             _step = (step == 0) ? threshold / 2 : step;
             _inverted = inverted;
 
-            Name = $"{nameof(IVStdAlphaModel)}({_period},{_resolution})";
+            Name = $"{nameof(IVSkewStdAlphaModel)}({_period},{_resolution})";
         }
 
         /// <summary>
@@ -85,23 +85,30 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 OptionChain chain;
                 if (!TryGetOptionChain(algorithm, symbol, out chain))
                     return insights;
-                //compute IV from some ATM options
-                decimal iv = 0;
-                var options = chain.Where((o) => o.UnderlyingLastPrice > o.Strike - 1 && o.UnderlyingLastPrice < o.Strike + 1);
-                if (options.Count() < 2)
-                {
-                    algorithm.Log("No options available to compute IV!");
-                    return insights;
-                }
-				iv = AverageIV(options);
+				
+				decimal calls_iv = 0;
+				decimal puts_iv = 0;
+				//compute IV for all reasonable OTM calls
+				var options = chain.Where((o) => o.Right == OptionRight.Call && o.UnderlyingLastPrice < o.Strike && o.AskPrice > .15m);
+				calls_iv = AverageIV(options);
+				//compute IV for all reasonable OTM puts
+				options = chain.Where((o) => o.Right == OptionRight.Put && o.UnderlyingLastPrice > o.Strike && o.AskPrice > .15m);
+				puts_iv = AverageIV(options);
 
-                kvp.Value.Update(data.Time, iv);
+				if (calls_iv <= 0 || puts_iv <= 0)
+				{
+					algorithm.Log("Insufficient data to compute skew!");
+					return insights;
+				}
+				//calls - puts => ratio, +skew bullish, -skew bearish
+				decimal iv_ratio = calls_iv - puts_iv;
+				kvp.Value.Update(data.Time, iv_ratio); //get the STD (magnitude) of skew
 
                 var std = kvp.Value.STD;
                 var previousState = kvp.Value.State;
                 var previousMag = kvp.Value.Mag;
                 double mag;
-                var state = GetState(std, out mag);
+                var state = GetState(std, iv_ratio, out mag);
 
                 if ((state != previousState || mag > previousMag) && std.IsReady)
                 {
@@ -112,11 +119,11 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                         case State.Neutral:
                             insights.Add(Insight.Price(symbol, insightPeriod, InsightDirection.Flat));
                             break;
-                        case State.TrippedHigh:
-                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down, mag));
-                            break;
-                        case State.TrippedLow:
+                        case State.TrippedHigh: //bullish
                             insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Down : InsightDirection.Up, mag));
+                            break;
+                        case State.TrippedLow: //bearish
+                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down, mag));
                             break;
                     }
                 }
@@ -205,19 +212,17 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         /// Determines the new state. This is basically cross-over detection logic that
         /// includes considerations for bouncing using the configured bounce tolerance.
         /// </summary>
-        private State GetState(StandardDeviation std, out double mag)
+        private State GetState(StandardDeviation std, decimal iv_ratio, out double mag)
         {
             mag = 0;
 
             if (std >= _threshold)
             {
                 mag = Math.Round(1 + (((double)std.Current.Value - _threshold)) / _step);
-                return State.TrippedHigh;
-            }
-            else if (std <= -_threshold)
-            {
-                mag = Math.Round(1 + (((double)std.Current.Value + _threshold)) / -_step);
-                return State.TrippedLow;
+				if (iv_ratio > 0)
+					return State.TrippedHigh;
+				else
+					return State.TrippedLow;
             }
 
             return State.Neutral;
@@ -253,11 +258,11 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 State = State.Neutral;
             }
 
-            public void Update(DateTime time, decimal iv)
+            public void Update(DateTime time, decimal iv_ratio)
             {
                 var point = new IndicatorDataPoint();
                 point.Time = time;
-                point.Value = iv * 100; //IV given in percent terms
+                point.Value = Math.Abs(iv_ratio * 100); //IV given in percent terms
 
                 STD.Update(point);
             }

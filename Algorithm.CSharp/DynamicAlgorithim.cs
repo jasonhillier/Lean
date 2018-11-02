@@ -49,7 +49,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             SetStartDate(startDate);
             SetEndDate(endDate);
-            SetCash(1000000);
+            SetCash(100000);
 
             SetUniverseSelection(new ManualUniverseSelectionModel(
                 //QuantConnect.Symbol.Create("AIG", SecurityType.Equity, Market.USA),

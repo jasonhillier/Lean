@@ -42,8 +42,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
 			//TODO: strike selector?
 			this._OptionFilter = (o) => {
-				return o.Strikes(-10, 20)
-						.Expiration(TimeSpan.FromDays(MinDaysRemaining), TimeSpan.FromDays(MaxDaysRemaining));
+				return o.Expiration(TimeSpan.FromDays(MinDaysRemaining), TimeSpan.FromDays(MaxDaysRemaining));
 			};
 		}
 

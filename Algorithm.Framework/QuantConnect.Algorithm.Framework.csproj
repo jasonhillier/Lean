@@ -117,6 +117,8 @@
     <Compile Include="Portfolio\RiskReversalPortfolioModel.cs" />
     <Compile Include="Alphas\RelativeStrengthAlphaModel.cs" />
     <Compile Include="Alphas\IVStdAlphaModel.cs" />
+    <Compile Include="Portfolio\IVCalendarPortfolioModel.cs" />
+    <Compile Include="Alphas\ExpiryAlphaModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">

@@ -68,35 +68,32 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
             int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
 
+            return FindSyntheticTargets(algorithm, symbol, insight.Direction == InsightDirection.Up, mag);
+        }
+
+        public virtual List<IPortfolioTarget> FindSyntheticTargets(QCAlgorithmFramework algorithm, Symbol symbol, bool isLong, int mag = 1, int expiryDistance = 0)
+        {
             var targets = new List<IPortfolioTarget>();
 
-            if (insight.Direction == InsightDirection.Down)
+            if (!isLong)
             {
-                var puts = this.GetITM(algorithm, symbol, OptionRight.Put);
-                var calls = this.GetOTM(algorithm, symbol, OptionRight.Call);
+                var synthetic = this.GetSyntheticShort(algorithm, symbol, expiryDistance);
+                if (synthetic == null)
+                    return targets; //abort/not-found
 
-                if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
-                {
-                    algorithm.Log("Option alignment error!");
-                    return null;
-                }
-
-                targets.Add(new PortfolioTarget(puts.First().Symbol, this.PositionSize * mag));
-                targets.Add(new PortfolioTarget(calls.First().Symbol, -this.PositionSize * mag));
+                //long call, short put
+                targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, this.PositionSize * mag));
+                targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, -this.PositionSize * mag));
             }
-            else if (insight.Direction == InsightDirection.Up)
+            else
             {
-                var puts = this.GetOTM(algorithm, symbol, OptionRight.Put);
-                var calls = this.GetITM(algorithm, symbol, OptionRight.Call);
+                var synthetic = this.GetSyntheticLong(algorithm, symbol, expiryDistance);
+                if (synthetic == null)
+                    return targets; //abort/not-found
 
-                if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
-                {
-                    algorithm.Log("Option alignment error!");
-                    return null;
-                }
-
-                targets.Add(new PortfolioTarget(puts.First().Symbol, -this.PositionSize * mag));
-                targets.Add(new PortfolioTarget(calls.First().Symbol, this.PositionSize * mag));
+                //long put, short call
+                targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, this.PositionSize * mag));
+                targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, -this.PositionSize * mag));
             }
 
             return targets;

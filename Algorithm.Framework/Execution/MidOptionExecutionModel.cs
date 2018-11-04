@@ -61,12 +61,13 @@ namespace QuantConnect.Algorithm.Framework.Execution
                 }
             }
 
-            //TODO: try resubmitting the order to close the spread as time goes by before cancelling.
+            //TODO: try resubmitting the order to closer to the spread as time goes by before cancelling/market ordering
 
-            //cancel any orders that haven't filled within the hour
-            foreach(var order in algorithm.Transactions.GetOpenOrders(o => (algorithm.CurrentSlice.Time - o.CreatedTime).TotalMinutes > 45))
+            //convert to market order within 30 mins
+            foreach(var order in algorithm.Transactions.GetOpenOrders(o => (algorithm.CurrentSlice.Time - o.CreatedTime).TotalMinutes >= 30))
             {
                 algorithm.Transactions.CancelOrder(order.Id);
+                algorithm.MarketOrder(order.Symbol, order.Quantity);
             }
 
             _targetsCollection.Clear();

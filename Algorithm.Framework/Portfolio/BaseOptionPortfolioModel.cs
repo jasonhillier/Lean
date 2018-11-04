@@ -131,9 +131,59 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                 return null;
             }
 
-            return chain
-                    //earliest upcoming expiry
-                    .OrderBy(x => x.Expiry);
+            List<DateTime> expirations = new List<DateTime>();
+
+            var options = chain.All((o) =>
+            {
+                if (!expirations.Contains(o.Expiry))
+                expirations.Add(o.Expiry);
+                return true;
+            });
+
+            expirations.OrderBy((i) => i);
+
+            if (expirations.Count < expiryDistance)
+                return null;
+
+            var targetExpiry = expirations[expiryDistance];
+
+            //select only expiry
+            return chain.Where(x => (x.Expiry == targetExpiry))
+                        .OrderBy(x => x.Expiry);
+        }
+
+        /// <summary>
+        /// Get long put and short call
+        /// </summary>
+        public Tuple<OptionContract, OptionContract> GetSyntheticShort(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, int expiryDistance = 0)
+        {
+            var puts = this.GetITM(algorithm, underlyingSymbol, OptionRight.Put, expiryDistance);
+            var calls = this.GetOTM(algorithm, underlyingSymbol, OptionRight.Call, expiryDistance);
+
+            if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
+            {
+                algorithm.Log("Option alignment error!");
+                return null;
+            }
+
+            return new Tuple<OptionContract, OptionContract>(puts.First(), calls.First());
+        }
+
+        /// <summary>
+        /// Get long call and short put
+        /// </summary>
+        public Tuple<OptionContract, OptionContract> GetSyntheticLong(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, int expiryDistance = 0)
+        {
+            var calls = this.GetITM(algorithm, underlyingSymbol, OptionRight.Call, expiryDistance);
+            var puts = this.GetOTM(algorithm, underlyingSymbol, OptionRight.Put, expiryDistance);
+
+            if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
+            {
+                algorithm.Log("Option alignment error!");
+                return null;
+            }
+
+            return new Tuple<OptionContract, OptionContract>(calls.First(), puts.First());
         }
 
         public override void OnSecuritiesChanged(QCAlgorithmFramework algorithm, SecurityChanges changes)

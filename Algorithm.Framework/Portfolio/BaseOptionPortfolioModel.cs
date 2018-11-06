@@ -142,7 +142,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
             expirations.OrderBy((i) => i);
 
-            if (expirations.Count < expiryDistance)
+            if (expirations.Count <= expiryDistance)
                 return null;
 
             var targetExpiry = expirations[expiryDistance];

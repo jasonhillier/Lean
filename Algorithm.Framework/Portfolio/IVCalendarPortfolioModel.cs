@@ -37,8 +37,11 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
             //short BOTH front-month
             var synthetic = this.GetSyntheticShort(algorithm, symbol, expiryDistance);
-            if (synthetic == null)
-                return targets; //abort/not-found
+			if (synthetic == null)
+			{
+				algorithm.Log("No front-month options found!");
+				return new List<IPortfolioTarget>(); //abort/not-found
+			}
 
             targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, neg*this.PositionSize * mag));
             targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, neg*this.PositionSize * mag));
@@ -46,7 +49,10 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             //long BOTH back month
             synthetic = this.GetSyntheticLong(algorithm, symbol, expiryDistance+1);
             if (synthetic == null)
-                return targets; //abort/not-found
+			{
+				algorithm.Log("No back-month options found!");
+				return new List<IPortfolioTarget>(); //abort/not-found
+			}
 
             targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, -1*neg*this.PositionSize * mag));
             targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, -1*neg*this.PositionSize * mag));

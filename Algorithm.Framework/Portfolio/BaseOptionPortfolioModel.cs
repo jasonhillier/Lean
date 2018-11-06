@@ -33,24 +33,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     public abstract class BaseOptionPortfolioModel : BasePortfolioModel
     {
         public int PositionSize = 1; //TODO make smarter
-        protected Dictionary<Symbol, Option> _OptionSymbols = new Dictionary<Symbol, Option>();
         protected Func<OptionFilterUniverse,OptionFilterUniverse> _OptionFilter;
-
-        public BaseOptionPortfolioModel()
-            : this(null)
-        {
-        }
-
-        public BaseOptionPortfolioModel(Func<OptionFilterUniverse,OptionFilterUniverse> optionFilter)
-        {
-            _OptionFilter = optionFilter;
-            if (_OptionFilter == null)
-            {
-                _OptionFilter = (o) => {
-                    return o.Expiration(TimeSpan.FromDays(2), TimeSpan.FromDays(31));
-                };
-            }
-        }
 
         public IEnumerable<OptionHolding> GetOptionHoldings(QCAlgorithmFramework algorithm, Symbol underlyingSymbol)
         {
@@ -75,15 +58,14 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
         public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
         {
             chain = null;
-            Option optionSymbol;
-            if (!_OptionSymbols.TryGetValue(underlyingSymbol, out optionSymbol))
-                return false;
 
             if (algorithm.CurrentSlice == null ||
                 algorithm.CurrentSlice.OptionChains == null)
                 return false;
 
-            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol.Symbol.Value, out chain);
+			var optionSymbol = Symbol.Create(underlyingSymbol.Value, SecurityType.Option, underlyingSymbol.ID.Market);
+
+            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol, out chain);
         }
 
         /// <summary>
@@ -184,23 +166,6 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             }
 
             return new Tuple<OptionContract, OptionContract>(calls.First(), puts.First());
-        }
-
-        public override void OnSecuritiesChanged(QCAlgorithmFramework algorithm, SecurityChanges changes)
-        {
-            base.OnSecuritiesChanged(algorithm, changes);
-            //TODO: auto-detect option selector?
-            foreach (var s in changes.AddedSecurities)
-            {
-                if (s.Symbol.SecurityType == SecurityType.Equity)
-                {
-                    var option = algorithm.AddOption(s.Symbol, s.Resolution);
-                    _OptionSymbols[s.Symbol] = option;
-
-                    // set our strike/expiry filter for this option chain
-                    option.SetFilter(u=>_OptionFilter(u));
-                }
-            }
         }
     }
 }

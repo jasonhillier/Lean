@@ -58,6 +58,9 @@ namespace QuantConnect.Algorithm.CSharp
                 QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA)
             ));
 
+			var option = AddOption(GetParameter("symbol"), Resolution.Minute);
+			option.SetFilter(-20, 20, TimeSpan.FromDays(0), TimeSpan.FromDays(45));
+
             var alphaModel = GetParameter("alpha-model");
             var portfolioModel = GetParameter("portfolio-model");
             var executionModel = GetParameter("execution-model");

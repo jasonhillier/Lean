@@ -104,8 +104,17 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override void OnAssignmentOrderEvent(OrderEvent assignmentEvent)
         {
-            //TODO: close assigned positions
-            base.OnAssignmentOrderEvent(assignmentEvent);
+			if (assignmentEvent.IsAssignment && assignmentEvent.Status == OrderStatus.Filled)
+			{
+				Log("CLOSING ASSIGNED POSITION at MARKET!");
+				//close assigned positions
+				if (assignmentEvent.Direction == OrderDirection.Buy)
+					this.MarketOrder(assignmentEvent.Symbol.Underlying, -assignmentEvent.FillQuantity * 100);
+				else if (assignmentEvent.Direction == OrderDirection.Sell)
+					this.MarketOrder(assignmentEvent.Symbol.Underlying, assignmentEvent.FillQuantity * 100);
+			}
+
+			base.OnAssignmentOrderEvent(assignmentEvent);
         }
 
         public override void OnData(Slice slice)

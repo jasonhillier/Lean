@@ -59,6 +59,7 @@ namespace QuantConnect.Algorithm.CSharp
             ));
 
 			var option = AddOption(GetParameter("symbol"), Resolution.Minute);
+			option.PriceModel = QuantConnect.Securities.Option.OptionPriceModels.BlackScholes();
 			option.SetFilter(-20, 20, TimeSpan.FromDays(0), TimeSpan.FromDays(45));
 
             var alphaModel = GetParameter("alpha-model");

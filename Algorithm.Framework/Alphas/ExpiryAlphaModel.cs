@@ -131,9 +131,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 {
                     if (!added.Symbol.HasUnderlying)
                     {
-                        _hackOptionSymbol = algorithm.AddOption(added.Symbol.Value, Resolution.Minute);
-                        _hackOptionSymbol.PriceModel = OptionPriceModels.BlackScholes();
-
                         algorithm.Consolidate(added.Symbol, _resolution, HandleAction);
 
                         _symbolDataBySymbol.Add(added.Symbol, false);

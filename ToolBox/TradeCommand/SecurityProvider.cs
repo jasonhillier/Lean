@@ -14,6 +14,7 @@
 */
 
 
+using System;
 using System.Collections.Generic;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
@@ -59,9 +60,12 @@ namespace QuantConnect.ToolBox.TradeCommand
 
         internal static Security CreateSecurity(Symbol symbol)
         {
+            throw new NotImplementedException();
+            /*
             return new Security(SecurityExchangeHours.AlwaysOpen(TimeZones.NewYork),
                 new SubscriptionDataConfig(typeof(TradeBar), symbol, Resolution.Minute, TimeZones.NewYork, TimeZones.NewYork, false, false, false),
                 new Cash(CashBook.AccountCurrency, 0, 1m), SymbolProperties.GetDefault(CashBook.AccountCurrency));
+                */
         }
     }
 }

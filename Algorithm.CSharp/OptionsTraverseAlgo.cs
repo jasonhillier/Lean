@@ -22,6 +22,7 @@ using QuantConnect.Data.Market;
 using QuantConnect.Indicators;
 using QuantConnect.Orders;
 using QuantConnect.Data.Consolidators;
+using QuantConnect.Interfaces;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -211,5 +212,13 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$0.50"}
         };
+
+        public bool CanRunLocally
+        {
+            get
+            {
+                return true;
+            }
+        }
     }
 }

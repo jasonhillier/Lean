@@ -34,7 +34,7 @@ namespace QuantConnect.Lean.Engine.Results
 			if (pResult.Statistics.Count > 0)
 			{
 				//backtests
-				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, _algorithm.RuntimeStatistics);
+				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
 				_Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
 
 				Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");

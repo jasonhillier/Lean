@@ -22,6 +22,7 @@ using QuantConnect.Data.Market;
 using QuantConnect.Indicators;
 using QuantConnect.Orders;
 using QuantConnect.Data.Consolidators;
+using QuantConnect.Interfaces;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -199,6 +200,11 @@ namespace QuantConnect.Algorithm.CSharp
         {
             Log(orderEvent.ToString());
         }
+
+        /// <summary>
+        /// This is used by the regression test system to indicate if the open source Lean repository has the required data to run this algorithm.
+        /// </summary>
+        public bool CanRunLocally { get; } = true;
 
         /// <summary>
         /// This is used by the regression test system to indicate which languages this algorithm is written in.

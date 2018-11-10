@@ -24,12 +24,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using NodaTime;
 using Python.Runtime;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
-using QuantConnect.Util;
 using Timer = System.Timers.Timer;
 
 namespace QuantConnect
@@ -488,7 +488,7 @@ namespace QuantConnect
         }
 
         /// <summary>
-        /// Rounds the specified date time in the specified time zone
+        /// Rounds the specified date time in the specified time zone. Careful with calling this method in a loop while modifying dateTime, check unit tests.
         /// </summary>
         /// <param name="dateTime">Date time to be rounded</param>
         /// <param name="roundingInterval">Timespan rounding period</param>
@@ -543,10 +543,20 @@ namespace QuantConnect
             // can't round against a zero interval
             if (interval == TimeSpan.Zero) return dateTime;
 
-            var rounded = dateTime.RoundDownInTimeZone(interval, exchangeHours.TimeZone, roundingTimeZone);
+            var dateTimeInRoundingTimeZone = dateTime.ConvertTo(exchangeHours.TimeZone, roundingTimeZone);
+            var roundedDateTimeInRoundingTimeZone = dateTimeInRoundingTimeZone.RoundDown(interval);
+            var rounded = roundedDateTimeInRoundingTimeZone.ConvertTo(roundingTimeZone, exchangeHours.TimeZone);
+
             while (!exchangeHours.IsOpen(rounded, rounded + interval, extendedMarket))
             {
-                rounded = (rounded - interval).RoundDownInTimeZone(interval, exchangeHours.TimeZone, roundingTimeZone);
+                // Will subtract interval to 'dateTime' in the roundingTimeZone (using the same value type instance) to avoid issues with daylight saving time changes.
+                // GH issue 2368: subtracting interval to 'dateTime' in exchangeHours.TimeZone and converting back to roundingTimeZone
+                // caused the substraction to be neutralized by daylight saving time change, which caused an infinite loop situation in this loop.
+                // The issue also happens if substracting in roundingTimeZone and converting back to exchangeHours.TimeZone.
+
+                dateTimeInRoundingTimeZone -= interval;
+                roundedDateTimeInRoundingTimeZone = dateTimeInRoundingTimeZone.RoundDown(interval);
+                rounded = roundedDateTimeInRoundingTimeZone.ConvertTo(roundingTimeZone, exchangeHours.TimeZone);
             }
             return rounded;
         }
@@ -588,8 +598,6 @@ namespace QuantConnect
         /// <returns>The time in terms of the to time zone</returns>
         public static DateTime ConvertTo(this DateTime time, DateTimeZone from, DateTimeZone to, bool strict = false)
         {
-            if (ReferenceEquals(from, to)) return time;
-
             if (strict)
             {
                 return from.AtStrictly(LocalDateTime.FromDateTime(time)).WithZone(to).ToDateTimeUnspecified();
@@ -982,8 +990,9 @@ namespace QuantConnect
                 order.Properties);
 
             submitOrderRequest.SetOrderId(order.Id);
-
-            return new OrderTicket(transactionManager, submitOrderRequest);
+            var orderTicket = new OrderTicket(transactionManager, submitOrderRequest);
+            orderTicket.SetOrder(order);
+            return orderTicket;
         }
 
         public static void ProcessUntilEmpty<T>(this IProducerConsumerCollection<T> collection, Action<T> handler)
@@ -1248,6 +1257,27 @@ namespace QuantConnect
                     yield return list;
                 }
             }
+        }
+
+        /// <summary>
+        /// Safely blocks until the specified task has completed executing
+        /// </summary>
+        /// <typeparam name="TResult">The task's result type</typeparam>
+        /// <param name="task">The task to be awaited</param>
+        /// <returns>The result of the task</returns>
+        public static TResult SynchronouslyAwaitTaskResult<TResult>(this Task<TResult> task)
+        {
+            return task.ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Safely blocks until the specified task has completed executing
+        /// </summary>
+        /// <param name="task">The task to be awaited</param>
+        /// <returns>The result of the task</returns>
+        public static void SynchronouslyAwaitTask(this Task task)
+        {
+            task.ConfigureAwait(false).GetAwaiter().GetResult();
         }
     }
 }

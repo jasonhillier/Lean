@@ -26,6 +26,7 @@ using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.DataFeeds.Enumerators.Factories;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Equity;
+using QuantConnect.Tests.Common.Securities;
 
 namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
 {
@@ -62,7 +63,13 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 var quoteCurrency = new Cash(CashBook.AccountCurrency, 0, 1);
                 var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(Market.USA, Symbols.SPY, SecurityType.Equity);
                 var config = new SubscriptionDataConfig(typeof(RestData), Symbols.SPY, Resolution.Second, TimeZones.NewYork, TimeZones.NewYork, false, false, false);
-                var security = new Equity(Symbols.SPY, exchangeHours, quoteCurrency, SymbolProperties.GetDefault(CashBook.AccountCurrency));
+                var security = new Equity(
+                    Symbols.SPY,
+                    exchangeHours,
+                    quoteCurrency,
+                    SymbolProperties.GetDefault(CashBook.AccountCurrency),
+                    ErrorCurrencyConverter.Instance
+                );
                 var request = new SubscriptionRequest(false, null, security, config, _referenceUtc.AddSeconds(-1), _referenceUtc.AddDays(1));
 
                 var factory = new TestableLiveCustomDataSubscriptionEnumeratorFactory(_timeProvider, _dataSourceReader.Object);
@@ -130,7 +137,13 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 var quoteCurrency = new Cash(CashBook.AccountCurrency, 0, 1);
                 var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(Market.USA, Symbols.SPY, SecurityType.Equity);
                 var config = new SubscriptionDataConfig(typeof(RestCollectionData), Symbols.SPY, Resolution.Second, TimeZones.NewYork, TimeZones.NewYork, false, false, false);
-                var security = new Equity(Symbols.SPY, exchangeHours, quoteCurrency, SymbolProperties.GetDefault(CashBook.AccountCurrency));
+                var security = new Equity(
+                    Symbols.SPY,
+                    exchangeHours,
+                    quoteCurrency,
+                    SymbolProperties.GetDefault(CashBook.AccountCurrency),
+                    ErrorCurrencyConverter.Instance
+                );
                 var request = new SubscriptionRequest(false, null, security, config, _referenceUtc.AddSeconds(-4), _referenceUtc.AddDays(1));
 
                 var factory = new TestableLiveCustomDataSubscriptionEnumeratorFactory(_timeProvider, _dataSourceReader.Object);
@@ -205,7 +218,13 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 var quoteCurrency = new Cash(CashBook.AccountCurrency, 0, 1);
                 var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(Market.USA, Symbols.SPY, SecurityType.Equity);
                 var config = new SubscriptionDataConfig(typeof(RemoteFileData), Symbols.SPY, Resolution.Second, TimeZones.NewYork, TimeZones.NewYork, false, false, false);
-                var security = new Equity(Symbols.SPY, exchangeHours, quoteCurrency, SymbolProperties.GetDefault(CashBook.AccountCurrency));
+                var security = new Equity(
+                    Symbols.SPY,
+                    exchangeHours,
+                    quoteCurrency,
+                    SymbolProperties.GetDefault(CashBook.AccountCurrency),
+                    ErrorCurrencyConverter.Instance
+                );
                 var request = new SubscriptionRequest(false, null, security, config, _referenceUtc.AddSeconds(-6), _referenceUtc.AddDays(1));
 
                 var factory = new TestableLiveCustomDataSubscriptionEnumeratorFactory(_timeProvider, _dataSourceReader.Object);
@@ -228,21 +247,11 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 Assert.IsNotNull(_enumerator.Current);
                 Assert.AreEqual(_referenceLocal, _enumerator.Current.EndTime);
 
-                Assert.IsTrue(_enumerator.MoveNext());
-                Assert.IsNull(_enumerator.Current);
-
                 _timeProvider.AdvanceSeconds(1);
 
                 Assert.IsTrue(_enumerator.MoveNext());
                 Assert.IsNotNull(_enumerator.Current);
                 Assert.AreEqual(_referenceLocal.AddSeconds(1), _enumerator.Current.EndTime);
-
-                // these are rate limited by the refresh enumerator's func guard clause
-                Assert.IsTrue(_enumerator.MoveNext());
-                Assert.IsNull(_enumerator.Current);
-
-                Assert.IsTrue(_enumerator.MoveNext());
-                Assert.IsNull(_enumerator.Current);
 
                 _dataSourceReader.Verify(dsr => dsr.Read(It.Is<SubscriptionDataSource>(sds =>
                         sds.Source == "remote.file.source" &&
@@ -285,7 +294,13 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 var quoteCurrency = new Cash(CashBook.AccountCurrency, 0, 1);
                 var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(Market.USA, Symbols.SPY, SecurityType.Equity);
                 var config = new SubscriptionDataConfig(typeof(RemoteFileData), Symbols.SPY, Resolution.Daily, TimeZones.NewYork, TimeZones.NewYork, false, false, false);
-                var security = new Equity(Symbols.SPY, exchangeHours, quoteCurrency, SymbolProperties.GetDefault(CashBook.AccountCurrency));
+                var security = new Equity(
+                    Symbols.SPY,
+                    exchangeHours,
+                    quoteCurrency,
+                    SymbolProperties.GetDefault(CashBook.AccountCurrency),
+                    ErrorCurrencyConverter.Instance
+                );
                 var request = new SubscriptionRequest(false, null, security, config, _referenceUtc.AddDays(-2), _referenceUtc.AddDays(1));
 
                 var factory = new TestableLiveCustomDataSubscriptionEnumeratorFactory(_timeProvider, _dataSourceReader.Object);
@@ -305,16 +320,6 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 Assert.IsTrue(_enumerator.MoveNext());
                 Assert.IsNotNull(_enumerator.Current);
                 Assert.AreEqual(_referenceLocal, _enumerator.Current.EndTime);
-                VerifyGetSourceInvocation(0);
-
-                // these are limitted by frontier aware enumerator preventing future data
-                Assert.IsTrue(_enumerator.MoveNext());
-                Assert.IsNull(_enumerator.Current);
-                VerifyGetSourceInvocation(0);
-
-                // still prevented by frontier aware
-                Assert.IsTrue(_enumerator.MoveNext());
-                Assert.IsNull(_enumerator.Current);
                 VerifyGetSourceInvocation(0);
 
                 _timeProvider.Advance(Time.OneDay);

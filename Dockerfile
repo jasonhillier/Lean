@@ -15,7 +15,7 @@ ADD . .
 # Option 1: Download from Master
 # RUN \
 #	wget https://github.com/QuantConnect/Lean/archive/master.zip && \
-#	unzip master.zip /root/Lean && \
+#	unzip master.zip -d /root/Lean && \
 #	cd /root/Lean
 RUN nuget update -self
 RUN \

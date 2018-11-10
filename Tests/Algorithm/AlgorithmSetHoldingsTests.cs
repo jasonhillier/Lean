@@ -22,6 +22,7 @@ using QuantConnect.Data.Market;
 using QuantConnect.Orders;
 using QuantConnect.Orders.Fees;
 using QuantConnect.Securities;
+using QuantConnect.Tests.Engine.DataFeeds;
 
 namespace QuantConnect.Tests.Algorithm
 {
@@ -137,6 +138,7 @@ namespace QuantConnect.Tests.Algorithm
             //Console.WriteLine();
 
             var algorithm = new QCAlgorithm();
+            algorithm.SubscriptionManager.SetDataManager(new DataManagerStub(algorithm));
 
             var security = algorithm.AddSecurity(_symbol.ID.SecurityType, _symbol.ID.Symbol);
             security.FeeModel = _feeModels[feeType];

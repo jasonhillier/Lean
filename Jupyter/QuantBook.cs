@@ -23,7 +23,6 @@ using QuantConnect.Indicators;
 using QuantConnect.Interfaces;
 using QuantConnect.Lean.Engine;
 using QuantConnect.Lean.Engine.DataFeeds;
-using QuantConnect.Python;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Future;
 using QuantConnect.Securities.Option;
@@ -44,7 +43,7 @@ namespace QuantConnect.Jupyter
     {
         private dynamic _pandas;
         private IDataCacheProvider _dataCacheProvider;
-        
+
         /// <summary>
         /// <see cref = "QuantBook" /> constructor.
         /// Provides access to data for quantitative analysis
@@ -69,9 +68,28 @@ namespace QuantConnect.Jupyter
                 var algorithmHandlers = LeanEngineAlgorithmHandlers.FromConfiguration(composer);
                 _dataCacheProvider = new ZipDataCacheProvider(algorithmHandlers.DataProvider);
 
+                var symbolPropertiesDataBase = SymbolPropertiesDatabase.FromDataFolder();
+                var securityService = new SecurityService(Portfolio.CashBook, MarketHoursDatabase, symbolPropertiesDataBase, this);
+                Securities.SetSecurityService(securityService);
+                SubscriptionManager.SetDataManager(
+                    new DataManager(new NullDataFeed(),
+                        new UniverseSelection(this, securityService),
+                        this,
+                        TimeKeeper,
+                        MarketHoursDatabase));
+
                 var mapFileProvider = algorithmHandlers.MapFileProvider;
                 HistoryProvider = composer.GetExportedValueByTypeName<IHistoryProvider>(Config.Get("history-provider", "SubscriptionDataReaderHistoryProvider"));
-                HistoryProvider.Initialize(null, algorithmHandlers.DataProvider, _dataCacheProvider, mapFileProvider, algorithmHandlers.FactorFileProvider, null);
+                HistoryProvider.Initialize(
+                    new HistoryProviderInitializeParameters(
+                        null,
+                        algorithmHandlers.DataProvider,
+                        _dataCacheProvider,
+                        mapFileProvider,
+                        algorithmHandlers.FactorFileProvider,
+                        null
+                    )
+                );
 
                 SetOptionChainProvider(new CachingOptionChainProvider(new BacktestingOptionChainProvider()));
                 SetFutureChainProvider(new CachingFutureChainProvider(new BacktestingFutureChainProvider()));
@@ -203,7 +221,7 @@ namespace QuantConnect.Jupyter
         }
 
         /// <summary>
-        /// Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="symbol">The symbol to retrieve historical data for</param>
@@ -213,12 +231,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of an indicator</returns>
         public PyObject Indicator(IndicatorBase<IndicatorDataPoint> indicator, Symbol symbol, int period, Resolution? resolution = null, Func<IBaseData, decimal> selector = null)
         {
-            var history = History<IBaseData>(symbol, period, resolution);
+            var history = History(new[] { symbol }, period, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="symbol">The symbol to retrieve historical data for</param>
@@ -228,12 +246,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of a bar indicator</returns>
         public PyObject Indicator(IndicatorBase<IBaseDataBar> indicator, Symbol symbol, int period, Resolution? resolution = null, Func<IBaseData, IBaseDataBar> selector = null)
         {
-            var history = History<IBaseDataBar>(symbol, period, resolution);
+            var history = History(new[] { symbol }, period, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="symbol">The symbol to retrieve historical data for</param>
@@ -243,12 +261,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of a bar indicator</returns>
         public PyObject Indicator(IndicatorBase<TradeBar> indicator, Symbol symbol, int period, Resolution? resolution = null, Func<IBaseData, TradeBar> selector = null)
         {
-            var history = History<TradeBar>(symbol, period, resolution);
+            var history = History(new[] { symbol }, period, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="indicator">Indicator</param>
@@ -259,12 +277,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of an indicator</returns>
         public PyObject Indicator(IndicatorBase<IndicatorDataPoint> indicator, Symbol symbol, TimeSpan span, Resolution? resolution = null, Func<IBaseData, decimal> selector = null)
         {
-            var history = base.History<IBaseData>(symbol, span, resolution);
+            var history = History(new[] { symbol }, span, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="indicator">Indicator</param>
@@ -275,12 +293,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of a bar indicator</returns>
         public PyObject Indicator(IndicatorBase<IBaseDataBar> indicator, Symbol symbol, TimeSpan span, Resolution? resolution = null, Func<IBaseData, IBaseDataBar> selector = null)
         {
-            var history = base.History<IBaseDataBar>(symbol, span, resolution);
+            var history = History(new[] { symbol }, span, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="indicator">Indicator</param>
@@ -291,12 +309,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of a bar indicator</returns>
         public PyObject Indicator(IndicatorBase<TradeBar> indicator, Symbol symbol, TimeSpan span, Resolution? resolution = null, Func<IBaseData, TradeBar> selector = null)
         {
-            var history = base.History<TradeBar>(symbol, span, resolution);
+            var history = History(new[] { symbol }, span, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="indicator">Indicator</param>
@@ -308,12 +326,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of an indicator</returns>
         public PyObject Indicator(IndicatorBase<IndicatorDataPoint> indicator, Symbol symbol, DateTime start, DateTime end, Resolution? resolution = null, Func<IBaseData, decimal> selector = null)
         {
-            var history = History<IBaseData>(symbol, start, end, resolution);
+            var history = History(new[] { symbol }, start, end, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="indicator">Indicator</param>
@@ -325,12 +343,12 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of a bar indicator</returns>
         public PyObject Indicator(IndicatorBase<IBaseDataBar> indicator, Symbol symbol, DateTime start, DateTime end, Resolution? resolution = null, Func<IBaseData, IBaseDataBar> selector = null)
         {
-            var history = History<IBaseDataBar>(symbol, start, end, resolution);
+            var history = History(new[] { symbol }, start, end, resolution);
             return Indicator(indicator, history, selector);
         }
 
         /// <summary>
-        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned. 
+        /// Gets the historical data of a bar indicator for the specified symbol. The exact number of bars will be returned.
         /// The symbol must exist in the Securities collection.
         /// </summary>
         /// <param name="indicator">Indicator</param>
@@ -342,7 +360,7 @@ namespace QuantConnect.Jupyter
         /// <returns>pandas.DataFrame of historical data of a bar indicator</returns>
         public PyObject Indicator(IndicatorBase<TradeBar> indicator, Symbol symbol, DateTime start, DateTime end, Resolution? resolution = null, Func<IBaseData, TradeBar> selector = null)
         {
-            var history = History<TradeBar>(symbol, start, end, resolution);
+            var history = History(new[] { symbol }, start, end, resolution);
             return Indicator(indicator, history, selector);
         }
 
@@ -432,7 +450,7 @@ namespace QuantConnect.Jupyter
         }
 
         /// <summary>
-        /// Calculates the daily rate of change 
+        /// Calculates the daily rate of change
         /// </summary>
         /// <param name="dictionary"><see cref="IDictionary{DateTime, Double}"/> with prices keyed by time</param>
         /// <returns><see cref="List{Double}"/> with daily rate of change</returns>
@@ -459,11 +477,11 @@ namespace QuantConnect.Jupyter
         /// <param name="history">Historical data used to calculate the indicator</param>
         /// <param name="selector">Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)</param>
         /// <returns>pandas.DataFrame containing the historical data of <param name="indicator"></returns>
-        private PyObject Indicator(IndicatorBase<IndicatorDataPoint> indicator, IEnumerable<IBaseData> history, Func<IBaseData, decimal> selector = null)
+        private PyObject Indicator(IndicatorBase<IndicatorDataPoint> indicator, IEnumerable<Slice> history, Func<IBaseData, decimal> selector = null)
         {
             // Reset the indicator
             indicator.Reset();
-            
+
             // Create a dictionary of the properties
             var name = indicator.GetType().Name;
 
@@ -488,11 +506,11 @@ namespace QuantConnect.Jupyter
 
             selector = selector ?? (x => x.Value);
 
-            foreach (var bar in history)
+            history.PushThrough(bar =>
             {
                 var value = selector(bar);
                 indicator.Update(bar.EndTime, value);
-            }
+            });
 
             return PandasConverter.GetIndicatorDataFrame(properties);
         }
@@ -504,7 +522,7 @@ namespace QuantConnect.Jupyter
         /// <param name="history">Historical data used to calculate the indicator</param>
         /// <param name="selector">Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)</param>
         /// <returns>pandas.DataFrame containing the historical data of <param name="indicator"></returns>
-        private PyObject Indicator<T>(IndicatorBase<T> indicator, IEnumerable<T> history, Func<IBaseData, T> selector = null)
+        private PyObject Indicator<T>(IndicatorBase<T> indicator, IEnumerable<Slice> history, Func<IBaseData, T> selector = null)
             where T : IBaseData
         {
             // Reset the indicator
@@ -531,17 +549,14 @@ namespace QuantConnect.Jupyter
                     kvp.Value.Add((IndicatorDataPoint)dataPoint);
                 }
             };
-            
+
             selector = selector ?? (x => (T)x);
-            
-            foreach (var bar in history)
-            {
-                indicator.Update(selector(bar));
-            }
+
+            history.PushThrough(bar => indicator.Update(selector(bar)));
 
             return PandasConverter.GetIndicatorDataFrame(properties);
         }
-        
+
         /// <summary>
         /// Gets a value of a property
         /// </summary>

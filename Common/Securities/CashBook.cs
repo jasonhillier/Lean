@@ -22,6 +22,7 @@ using System.Text;
 using QuantConnect.Data;
 using System.Collections.Concurrent;
 using QuantConnect.Data.UniverseSelection;
+using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 
 namespace QuantConnect.Securities
@@ -29,7 +30,7 @@ namespace QuantConnect.Securities
     /// <summary>
     /// Provides a means of keeping track of the different cash holdings of an algorithm
     /// </summary>
-    public class CashBook : IDictionary<string, Cash>
+    public class CashBook : IDictionary<string, Cash>, ICurrencyConverter
     {
         /// <summary>
         /// Gets the base currency used
@@ -73,24 +74,28 @@ namespace QuantConnect.Securities
         /// </summary>
         /// <param name="securities">The SecurityManager for the algorithm</param>
         /// <param name="subscriptions">The SubscriptionManager for the algorithm</param>
-        /// <param name="marketHoursDatabase">A security exchange hours provider instance used to resolve exchange hours for new subscriptions</param>
-        /// <param name="symbolPropertiesDatabase">A symbol properties database instance</param>
         /// <param name="marketMap">The market map that decides which market the new security should be in</param>
-        /// <returns>Returns a list of added currency securities</returns>
-        public List<Security> EnsureCurrencyDataFeeds(SecurityManager securities, SubscriptionManager subscriptions, MarketHoursDatabase marketHoursDatabase, SymbolPropertiesDatabase symbolPropertiesDatabase, IReadOnlyDictionary<SecurityType, string> marketMap, SecurityChanges changes)
+        /// <param name="changes">Will be used to consume <see cref="SecurityChanges.AddedSecurities"/></param>
+        /// <param name="securityService">Will be used to create required new <see cref="Security"/></param>
+        /// <returns>Returns a list of added currency <see cref="SubscriptionDataConfig"/></returns>
+        public List<SubscriptionDataConfig> EnsureCurrencyDataFeeds(SecurityManager securities,
+            SubscriptionManager subscriptions,
+            IReadOnlyDictionary<SecurityType, string> marketMap,
+            SecurityChanges changes,
+            ISecurityService securityService)
         {
-            var addedSecurities = new List<Security>();
+            var addedSubscriptionDataConfigs = new List<SubscriptionDataConfig>();
             foreach (var kvp in _currencies)
             {
                 var cash = kvp.Value;
 
-                var security = cash.EnsureCurrencyDataFeed(securities, subscriptions, marketHoursDatabase, symbolPropertiesDatabase, marketMap, this, changes);
-                if (security != null)
+                var subscriptionDataConfig = cash.EnsureCurrencyDataFeed(securities, subscriptions, marketMap, changes, securityService);
+                if (subscriptionDataConfig != null)
                 {
-                    addedSecurities.Add(security);
+                    addedSubscriptionDataConfigs.Add(subscriptionDataConfig);
                 }
             }
-            return addedSecurities;
+            return addedSubscriptionDataConfigs;
         }
 
         /// <summary>
@@ -314,6 +319,26 @@ namespace QuantConnect.Securities
         IEnumerator IEnumerable.GetEnumerator()
         {
             return ((IEnumerable) _currencies).GetEnumerator();
+        }
+
+        #endregion
+
+        #region ICurrencyConverter Implementation
+
+        /// <summary>
+        /// Converts a cash amount to the account currency
+        /// </summary>
+        /// <param name="cashAmount">The <see cref="CashAmount"/> instance to convert</param>
+        /// <returns>A new <see cref="CashAmount"/> instance denominated in the account currency</returns>
+        public CashAmount ConvertToAccountCurrency(CashAmount cashAmount)
+        {
+            if (cashAmount.Currency == AccountCurrency)
+            {
+                return cashAmount;
+            }
+
+            var amount = Convert(cashAmount.Amount, cashAmount.Currency, AccountCurrency);
+            return new CashAmount(amount, AccountCurrency, this);
         }
 
         #endregion

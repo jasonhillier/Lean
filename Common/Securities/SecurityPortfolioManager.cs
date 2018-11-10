@@ -16,10 +16,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using Python.Runtime;
 using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
+using QuantConnect.Logging;
 using QuantConnect.Orders;
+using QuantConnect.Python;
 
 namespace QuantConnect.Securities
 {
@@ -425,8 +429,9 @@ namespace QuantConnect.Securities
                 foreach (var kvp in Securities)
                 {
                     var security = kvp.Value;
-
-                    sum += security.BuyingPowerModel.GetReservedBuyingPowerForPosition(security);
+                    var context = new ReservedBuyingPowerForPositionContext(security);
+                    var reservedBuyingPower = security.BuyingPowerModel.GetReservedBuyingPowerForPosition(context);
+                    sum += reservedBuyingPower.Value;
                 }
                 return sum;
             }
@@ -506,7 +511,8 @@ namespace QuantConnect.Securities
         public decimal GetMarginRemaining(Symbol symbol, OrderDirection direction = OrderDirection.Buy)
         {
             var security = Securities[symbol];
-            return security.BuyingPowerModel.GetBuyingPower(this, security, direction);
+            var context = new BuyingPowerContext(this, security, direction);
+            return security.BuyingPowerModel.GetBuyingPower(context).Value;
         }
 
         /// <summary>
@@ -539,8 +545,16 @@ namespace QuantConnect.Securities
         /// Applies a dividend to the portfolio
         /// </summary>
         /// <param name="dividend">The dividend to be applied</param>
-        public void ApplyDividend(Dividend dividend)
+        /// <param name="liveMode">True if live mode, false for backtest</param>
+        public void ApplyDividend(Dividend dividend, bool liveMode)
         {
+            // we currently don't properly model dividend payable dates, so in
+            // live mode it's more accurate to rely on the brokerage cash sync
+            if (liveMode)
+            {
+                return;
+            }
+
             var security = Securities[dividend.Symbol];
 
             // only apply dividends when we're in raw mode or split adjusted mode
@@ -559,7 +573,8 @@ namespace QuantConnect.Securities
         /// Applies a split to the portfolio
         /// </summary>
         /// <param name="split">The split to be applied</param>
-        public void ApplySplit(Split split)
+        /// <param name="liveMode">True if live mode, false for backtest</param>
+        public void ApplySplit(Split split, bool liveMode)
         {
             var security = Securities[split.Symbol];
 
@@ -569,9 +584,9 @@ namespace QuantConnect.Securities
                 return;
             }
 
-            // only apply splits in raw data mode,
+            // only apply splits in live or raw data mode
             var mode = security.DataNormalizationMode;
-            if (mode != DataNormalizationMode.Raw)
+            if (!liveMode && mode != DataNormalizationMode.Raw)
             {
                 return;
             }
@@ -692,5 +707,51 @@ namespace QuantConnect.Securities
             }
         }
 
+        /// <summary>
+        /// Logs margin information for debugging
+        /// </summary>
+        public void LogMarginInformation(OrderRequest orderRequest = null)
+        {
+            Log.Trace("Total margin information: " +
+                      $"TotalMarginUsed: {TotalMarginUsed.ToString("F2", CultureInfo.InvariantCulture)}, " +
+                      $"MarginRemaining: {MarginRemaining.ToString("F2", CultureInfo.InvariantCulture)}");
+
+            var orderSubmitRequest = orderRequest as SubmitOrderRequest;
+            if (orderSubmitRequest != null)
+            {
+                var direction = orderSubmitRequest.Quantity > 0 ? OrderDirection.Buy : OrderDirection.Sell;
+                var security = Securities[orderSubmitRequest.Symbol];
+
+                var marginUsed = security.BuyingPowerModel.GetReservedBuyingPowerForPosition(
+                    new ReservedBuyingPowerForPositionContext(security)
+                );
+
+                var marginRemaining = security.BuyingPowerModel.GetBuyingPower(
+                    new BuyingPowerContext(this, security, direction)
+                );
+
+                Log.Trace("Order request margin information: " +
+                          $"MarginUsed: {marginUsed.Value.ToString("F2", CultureInfo.InvariantCulture)}, " +
+                          $"MarginRemaining: {marginRemaining.Value.ToString("F2", CultureInfo.InvariantCulture)}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the margin call model
+        /// </summary>
+        /// <param name="marginCallModel">Model that represents a portfolio's model to executed margin call orders.</param>
+        public void SetMarginCallModel(IMarginCallModel marginCallModel)
+        {
+            MarginCallModel = marginCallModel;
+        }
+
+        /// <summary>
+        /// Sets the margin call model
+        /// </summary>
+        /// <param name="pyObject">Model that represents a portfolio's model to executed margin call orders.</param>
+        public void SetMarginCallModel(PyObject pyObject)
+        {
+            SetMarginCallModel(new MarginCallModelPythonWrapper(pyObject));
+        }
     }
 }

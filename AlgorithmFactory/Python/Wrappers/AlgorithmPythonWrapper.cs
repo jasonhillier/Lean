@@ -262,7 +262,7 @@ namespace QuantConnect.AlgorithmFactory.Python.Wrappers
         /// <summary>
         /// Gets the user settings for the algorithm
         /// </summary>
-        public AlgorithmSettings Settings => _baseAlgorithm.Settings;
+        public IAlgorithmSettings Settings => _baseAlgorithm.Settings;
 
         /// <summary>
         /// Gets the option chain provider, used to get the list of option contracts for an underlying symbol
@@ -273,6 +273,11 @@ namespace QuantConnect.AlgorithmFactory.Python.Wrappers
         /// Gets the future chain provider, used to get the list of future contracts for an underlying symbol
         /// </summary>
         public IFutureChainProvider FutureChainProvider => _baseAlgorithm.FutureChainProvider;
+
+        /// <summary>
+        /// Returns the current Slice object
+        /// </summary>
+        public Slice CurrentSlice => _baseAlgorithm.CurrentSlice;
 
         /// <summary>
         /// Algorithm start date for backtesting, set by the SetStartDate methods.
@@ -334,6 +339,11 @@ namespace QuantConnect.AlgorithmFactory.Python.Wrappers
                 _baseAlgorithm.InsightsGenerated -= value;
             }
         }
+
+        /// <summary>
+        /// Gets the time keeper instance
+        /// </summary>
+        public ITimeKeeper TimeKeeper => _baseAlgorithm.TimeKeeper;
 
         /// <summary>
         /// Data subscription manager controls the information and subscriptions the algorithms recieves.

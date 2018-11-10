@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using QuantConnect.Configuration;
+using QuantConnect.Data;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -528,6 +529,11 @@ namespace QuantConnect.Brokerages.TradeStation
             "CheckForFillsError", "UnknownIdResolution", "ContingentOrderError", "NullResponse", "PendingOrderNotReturned"
         };
 
+        public event EventHandler<InvalidConfigurationDetectedEventArgs> InvalidConfigurationDetected;
+        public event EventHandler<NumericalPrecisionLimitedEventArgs> NumericalPrecisionLimited;
+        public event EventHandler<DownloadFailedEventArgs> DownloadFailed;
+        public event EventHandler<ReaderErrorDetectedEventArgs> ReaderErrorDetected;
+
         /*
         private TradierOrderResponse TradierPlaceOrder(TradierPlaceOrderRequest order)
         {
@@ -962,6 +968,11 @@ namespace QuantConnect.Brokerages.TradeStation
                 MarketPrice = (decimal)position.AveragePrice,
                 Quantity = (decimal)position.Quantity
             };
+        }
+
+        public void Initialize(HistoryProviderInitializeParameters parameters)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion

@@ -17,6 +17,7 @@ using Python.Runtime;
 using QuantConnect.Data.UniverseSelection;
 using System;
 using System.Collections.Generic;
+using QuantConnect.Interfaces;
 
 namespace QuantConnect.Algorithm.Framework.Selection
 {
@@ -40,7 +41,7 @@ namespace QuantConnect.Algorithm.Framework.Selection
 
             using (Py.GIL())
             {
-                return _model.GetNextRefreshTime();
+                return _model.GetNextRefreshTimeUtc();
             }
         }
 
@@ -52,10 +53,7 @@ namespace QuantConnect.Algorithm.Framework.Selection
         {
             using (Py.GIL())
             {
-                if (!model.HasAttr(nameof(IUniverseSelectionModel.GetNextRefreshTimeUtc)))
-                {
-                    _modelHasGetNextRefreshTime = false;
-                }
+                _modelHasGetNextRefreshTime = model.HasAttr(nameof(IUniverseSelectionModel.GetNextRefreshTimeUtc));
 
                 foreach (var attributeName in new[] { "CreateUniverses" })
                 {

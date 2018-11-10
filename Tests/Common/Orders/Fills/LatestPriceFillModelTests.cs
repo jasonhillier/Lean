@@ -6,6 +6,7 @@ using QuantConnect.Data.Market;
 using QuantConnect.Orders;
 using QuantConnect.Orders.Fills;
 using QuantConnect.Securities;
+using QuantConnect.Tests.Common.Securities;
 
 namespace QuantConnect.Tests.Common.Orders.Fills
 {
@@ -16,7 +17,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
         private QuoteBar _quote;
         private TradeBar _trade;
         private TestableLatestFillModel _fillModel;
-        
+
         [TestFixtureSetUp]
         public void Setup()
         {
@@ -52,7 +53,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
         {
             var cryptoSecurity = CreateCrypto();
             cryptoSecurity.Cache.AddData(_quote);
-            
+
             var price = _fillModel.GetPrices(cryptoSecurity, OrderDirection.Sell);
 
             // Bid prices are $1
@@ -96,10 +97,22 @@ namespace QuantConnect.Tests.Common.Orders.Fills
 
         private Security CreateCrypto()
         {
-            return new Security(SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc),
-                new SubscriptionDataConfig(typeof(QuoteBar), _symbol, Resolution.Second, TimeZones.Utc, TimeZones.Utc, true, true, false),
+            return new Security(
+                SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc),
+                new SubscriptionDataConfig(
+                    typeof(QuoteBar),
+                    _symbol,
+                    Resolution.Second,
+                    TimeZones.Utc,
+                    TimeZones.Utc,
+                    true,
+                    true,
+                    false
+                ),
                 new Cash(CashBook.AccountCurrency, 0, 1m),
-                SymbolProperties.GetDefault(CashBook.AccountCurrency));
+                SymbolProperties.GetDefault(CashBook.AccountCurrency),
+                ErrorCurrencyConverter.Instance
+            );
         }
 
         internal class TestableLatestFillModel : LatestPriceFillModel

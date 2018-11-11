@@ -24,6 +24,7 @@ using QuantConnect.Algorithm.Framework.Portfolio;
 using QuantConnect.Algorithm.Framework.Selection;
 using QuantConnect.Data;
 using QuantConnect.Orders;
+using QuantConnect.Securities;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -53,16 +54,14 @@ namespace QuantConnect.Algorithm.CSharp
             SetCash(100000);
 
 			var security = QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA);
+            var option = QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Option, Market.USA);
 
-			SetUniverseSelection(new ManualUniverseSelectionModel(
-				security
-			));
-
-			var option = AddOption(GetParameter("symbol"), Resolution.Minute);
-			option.PriceModel = QuantConnect.Securities.Option.OptionPriceModels.BlackScholes();
-			option.SetFilter(-7, 7, TimeSpan.FromDays(0), TimeSpan.FromDays(45));
-
-			//this.SetBenchmark(security); //TODO: this breaks everything
+            SetUniverseSelection(new DynamicOptionUniverseSelectionModel((DateTime utcTime) =>
+            {
+                return new List<Symbol>(){
+                    option
+                };
+            }));
 
 			var alphaModel = GetParameter("alpha-model");
             var portfolioModel = GetParameter("portfolio-model");
@@ -97,6 +96,8 @@ namespace QuantConnect.Algorithm.CSharp
             SetExecution(execution);
 
             InsightsGenerated += (algorithm, data) => Log($"{Time}: INSIGHT>> {string.Join(" | ", data.Insights)}");
+
+            //this.SetBenchmark(security); //TODO: this breaks everything
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
@@ -128,6 +129,27 @@ namespace QuantConnect.Algorithm.CSharp
                 {
                     this.Liquidate();
                 }
+            }
+        }
+
+        class DynamicOptionUniverseSelectionModel : OptionUniverseSelectionModel
+        {
+            public DynamicOptionUniverseSelectionModel(Func<DateTime, IEnumerable<Symbol>> optionChainSymbolSelector)
+                : base(TimeSpan.FromDays(1), optionChainSymbolSelector)
+            {
+            }
+
+            /// <summary>
+            /// Defines the option chain universe filter
+            /// </summary>
+            protected override OptionFilterUniverse Filter(OptionFilterUniverse filter)
+            {
+                return filter
+                    .Strikes(-7, +7)
+                    .Expiration(TimeSpan.Zero, TimeSpan.FromDays(45));
+                    //.WeeklysOnly()
+                    //.PutsOnly()
+                    //.OnlyApplyFilterAtMarketOpen();
             }
         }
 

@@ -22,6 +22,7 @@ using QuantConnect.Indicators;
 using QuantConnect.Securities.Option;
 using QuantConnect.Util;
 using System.Linq;
+using QuantConnect.Securities;
 
 namespace QuantConnect.Algorithm.Framework.Alphas
 {
@@ -85,15 +86,16 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 OptionChain chain;
                 if (!TryGetOptionChain(algorithm, symbol, out chain))
                     return insights;
+                    
 				
 				decimal calls_iv = 0;
 				decimal puts_iv = 0;
 				//compute IV for all reasonable OTM calls
 				var options = chain.Where((o) => o.Right == OptionRight.Call && o.UnderlyingLastPrice < o.Strike && o.AskPrice > .15m);
-				calls_iv = AverageIV(options);
+                calls_iv = AverageIV(algorithm, options);
 				//compute IV for all reasonable OTM puts
 				options = chain.Where((o) => o.Right == OptionRight.Put && o.UnderlyingLastPrice > o.Strike && o.AskPrice > .15m);
-				puts_iv = AverageIV(options);
+                puts_iv = AverageIV(algorithm, options);
 
 				if (calls_iv <= 0 || puts_iv <= 0)
 				{
@@ -232,14 +234,22 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
         {
             chain = null;
-            //TODO: uh derp
-            Symbol optionSymbol = Symbol.Create(underlyingSymbol.Value, SecurityType.Option, Market.USA);
 
             if (algorithm.CurrentSlice == null ||
                 algorithm.CurrentSlice.OptionChains == null)
                 return false;
 
-            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol.Value, out chain);
+            //find the option chain that has the underlying
+            foreach(var kvp in algorithm.CurrentSlice.OptionChains)
+            {
+                if (kvp.Key.Underlying == underlyingSymbol)
+                {
+                    chain = kvp.Value;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

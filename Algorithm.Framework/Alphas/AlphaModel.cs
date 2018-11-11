@@ -18,6 +18,8 @@ using System.Collections.Generic;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
+using QuantConnect.Securities;
+using QuantConnect.Securities.Option;
 
 namespace QuantConnect.Algorithm.Framework.Alphas
 {
@@ -30,6 +32,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         /// Defines a name for a framework model
         /// </summary>
         public virtual string Name { get; set; }
+        private IOptionPriceModel optionPriceModel = OptionPriceModels.BlackScholes();
 
         public AlphaModel()
         {
@@ -37,19 +40,24 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         }
 
 		//TODO: turn this into an indicator
+        //TODO: or move into new derived class
 		/// <summary>
 		/// Returns the average IV for a set of options.
 		/// </summary>
 		/// <param name="chain"></param>
 		/// <returns></returns>
-		public decimal AverageIV(IEnumerable<OptionContract> chain)
+        public decimal AverageIV(QCAlgorithmFramework algorithm, IEnumerable<OptionContract> chain)
 		{
 			decimal iv = 0;
 			int count = 0;
 			foreach(var option in chain)
 			{
 				count++;
-				iv += option.ImpliedVolatility;
+
+                var optionSecurity = algorithm.ActiveSecurities[option.Symbol];
+                var modelResult = optionPriceModel.Evaluate(optionSecurity, algorithm.CurrentSlice, option);
+
+                iv += modelResult.ImpliedVolatility;
 			}
 			return count == 0 ? 0 : (iv / count);
 		}

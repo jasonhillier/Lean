@@ -93,7 +93,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                     algorithm.Log("No options available to compute IV!");
                     return insights;
                 }
-				iv = AverageIV(options);
+                iv = AverageIV(algorithm, options);
 
                 kvp.Value.Update(data.Time, iv);
 

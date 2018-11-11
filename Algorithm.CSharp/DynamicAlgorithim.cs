@@ -39,6 +39,7 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             UniverseSettings.Resolution = Resolution.Minute;
+			//this.Settings.DataSubscriptionLimit = 100000;
 
             DateTime startDate = DateTime.Parse(GetParameter("start-date"));
             DateTime endDate = DateTime.Parse(GetParameter("end-date"));
@@ -51,18 +52,19 @@ namespace QuantConnect.Algorithm.CSharp
             SetEndDate(endDate);
             SetCash(100000);
 
-            SetUniverseSelection(new ManualUniverseSelectionModel(
-                //QuantConnect.Symbol.Create("AIG", SecurityType.Equity, Market.USA),
-                //QuantConnect.Symbol.Create("BAC", SecurityType.Equity, Market.USA),
-                //QuantConnect.Symbol.Create("IBM", SecurityType.Equity, Market.USA),
-                QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA)
-            ));
+			var security = QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA);
+
+			SetUniverseSelection(new ManualUniverseSelectionModel(
+				security
+			));
 
 			var option = AddOption(GetParameter("symbol"), Resolution.Minute);
 			option.PriceModel = QuantConnect.Securities.Option.OptionPriceModels.BlackScholes();
 			option.SetFilter(-20, 20, TimeSpan.FromDays(0), TimeSpan.FromDays(45));
 
-            var alphaModel = GetParameter("alpha-model");
+			//this.SetBenchmark(security); //TODO: this breaks everything
+
+			var alphaModel = GetParameter("alpha-model");
             var portfolioModel = GetParameter("portfolio-model");
             var executionModel = GetParameter("execution-model");
 

@@ -53,6 +53,7 @@ namespace QuantConnect.Lean.Engine.Results
 				}
 				_Commit(backTestOrders, ES_INDEX + "-orders");
 
+				/* -- don't save the charts, instead, we upload the backtest report json
 				Console.WriteLine("[ElasticSearchResultHandler] + Storing result charts...");
 				//backtests-charts
 				var chartValues = new List<BackTestChartPoint>();
@@ -73,7 +74,12 @@ namespace QuantConnect.Lean.Engine.Results
 					}
 				}
 				_Commit(chartValues, ES_INDEX + "-charts");
+				*/
 			}
+
+			base.SaveResults(name, pResult);
+
+			//TODO: upload JSON file
 		}
 
 		private bool _Commit(IEnumerable<dynamic> Results, string ESIndex)

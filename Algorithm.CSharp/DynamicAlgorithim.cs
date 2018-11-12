@@ -40,6 +40,7 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             UniverseSettings.Resolution = Resolution.Minute;
+            UniverseSettings.FillForward = false;
 			//this.Settings.DataSubscriptionLimit = 100000;
 
             DateTime startDate = DateTime.Parse(GetParameter("start-date"));

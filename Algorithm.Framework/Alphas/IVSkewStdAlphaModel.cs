@@ -76,9 +76,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         public override IEnumerable<Insight> Update(QCAlgorithmFramework algorithm, Slice data)
         {
             var insights = new List<Insight>();
-            if (!_timeTrigger)
-                return insights;
-            _timeTrigger = false;
 
             foreach (var kvp in _symbolDataBySymbol)
             {
@@ -86,7 +83,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 OptionChain chain;
                 if (!TryGetOptionChain(algorithm, symbol, out chain))
                     return insights;
-                    
 				
 				decimal calls_iv = 0;
 				decimal puts_iv = 0;
@@ -166,11 +162,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 {
                     if (!added.Symbol.HasUnderlying)
                     {
-                        algorithm.Consolidate(added.Symbol, _resolution, HandleAction);
-
-                        //var consolidator = algorithm.ResolveConsolidator(added.Symbol, _resolution);
-                        //consolidator.DataConsolidated += Consolidator_DataConsolidated;
-
                         var symbolData = new SymbolData(added.Symbol, _period);
                         _symbolDataBySymbol[added.Symbol] = symbolData;
                         addedSymbols.Add(symbolData.Symbol);
@@ -197,17 +188,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                     });
                     */
             }
-        }
-
-        void HandleAction(TradeBar obj)
-        {
-            _timeTrigger = true;
-        }
-
-
-        void Consolidator_DataConsolidated(object sender, IBaseData consolidated)
-        {
-            _timeTrigger = true;
         }
 
 

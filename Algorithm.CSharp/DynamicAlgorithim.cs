@@ -41,7 +41,11 @@ namespace QuantConnect.Algorithm.CSharp
         {
             UniverseSettings.Resolution = Resolution.Minute;
             UniverseSettings.FillForward = false;
-			//this.Settings.DataSubscriptionLimit = 100000;
+            //this.Settings.DataSubscriptionLimit = 100000;
+            this.SetSecurityInitializer((sec) =>
+            {
+                sec.SetDataNormalizationMode(DataNormalizationMode.Raw);
+            });
 
             DateTime startDate = DateTime.Parse(GetParameter("start-date"));
             DateTime endDate = DateTime.Parse(GetParameter("end-date"));

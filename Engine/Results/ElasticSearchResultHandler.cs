@@ -10,6 +10,10 @@ using QuantConnect.Orders;
 using QuantConnect.Securities;
 using System.Dynamic;
 using System.ComponentModel;
+using Amazon.Runtime;
+using Amazon.S3;
+using Amazon.S3.Transfer;
+using System.IO;
 
 namespace QuantConnect.Lean.Engine.Results
 {
@@ -19,6 +23,7 @@ namespace QuantConnect.Lean.Engine.Results
 	public class ElasticSearchResultHandler : BacktestingResultHandler, IResultHandler
 	{
 		private string ES_INDEX;
+		private AmazonS3Client S3_CLIENT;
 
 		/// <summary>
 		/// Default initializer for
@@ -27,6 +32,7 @@ namespace QuantConnect.Lean.Engine.Results
 			base()
 		{
 			ES_INDEX = Config.Get("es-index", "backtests");
+			S3_CLIENT = new AmazonS3Client(Config.Get("aws-id"), Config.Get("aws-key"), Amazon.RegionEndpoint.USWest2);
 		}
 
 		public override void SaveResults(string name, Result pResult)
@@ -35,7 +41,7 @@ namespace QuantConnect.Lean.Engine.Results
 			{
 				//backtests
 				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
-				_Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
+				this.Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
 
 				Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");
 
@@ -51,7 +57,7 @@ namespace QuantConnect.Lean.Engine.Results
 
 					backTestOrders.Add(metaOrder);
 				}
-				_Commit(backTestOrders, ES_INDEX + "-orders");
+				this.Commit(backTestOrders, ES_INDEX + "-orders");
 
 				/* -- don't save the charts, instead, we upload the backtest report json
 				Console.WriteLine("[ElasticSearchResultHandler] + Storing result charts...");
@@ -75,14 +81,19 @@ namespace QuantConnect.Lean.Engine.Results
 				}
 				_Commit(chartValues, ES_INDEX + "-charts");
 				*/
+				base.SaveResults(name, pResult);
+
+				Console.WriteLine("Uploading results to S3: reports/" + backTestResult.id);
+
+				//upload JSON file
+				var filePath = Path.Combine(Directory.GetCurrentDirectory(), name);
+				var tx = new TransferUtility(S3_CLIENT);
+				tx.UploadAsync(filePath, Config.Get("aws-bucket", "lean-option-data"), "reports/" + backTestResult.id).Wait();
+				Console.WriteLine("Upload complete.");
 			}
-
-			base.SaveResults(name, pResult);
-
-			//TODO: upload JSON file
 		}
 
-		private bool _Commit(IEnumerable<dynamic> Results, string ESIndex)
+		private bool Commit(IEnumerable<dynamic> Results, string ESIndex)
 		{
 			if (Results == null || Results.Count() == 0)
 				return false;

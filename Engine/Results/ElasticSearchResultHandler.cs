@@ -41,55 +41,69 @@ namespace QuantConnect.Lean.Engine.Results
 			{
 				//backtests
 				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
-				this.Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
-
-				Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");
-
-				Console.WriteLine("[ElasticSearchResultHandler] + Storing result orders...");
-				//backtests-orders
-				var backTestOrders = new List<dynamic>();
-				foreach(var order in pResult.Orders)
+				try
 				{
-					var metaOrder = order.Value.ToDynamic();
-					metaOrder.backtestId = backTestResult.id;
-					metaOrder.id = metaOrder.backtestId + "_" + metaOrder.Id;
-					metaOrder.date = metaOrder.Time;
+					this.Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
 
-					backTestOrders.Add(metaOrder);
-				}
-				this.Commit(backTestOrders, ES_INDEX + "-orders");
+					Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");
 
-				/* -- don't save the charts, instead, we upload the backtest report json
-				Console.WriteLine("[ElasticSearchResultHandler] + Storing result charts...");
-				//backtests-charts
-				var chartValues = new List<BackTestChartPoint>();
-				foreach (var chart in pResult.Charts)
-				{
-					foreach (var series in chart.Value.Series)
+					Console.WriteLine("[ElasticSearchResultHandler] + Storing result orders...");
+					//backtests-orders
+					var backTestOrders = new List<dynamic>();
+					foreach (var order in pResult.Orders)
 					{
-						foreach (var point in series.Value.Values)
-						{
-							var chartValue = new BackTestChartPoint(
-								backTestResult.id,
-								chart.Key,
-								series.Value,
-								point);
+						var metaOrder = order.Value.ToDynamic();
+						metaOrder.backtestId = backTestResult.id;
+						metaOrder.id = metaOrder.backtestId + "_" + metaOrder.Id;
+						metaOrder.date = metaOrder.Time;
 
-							chartValues.Add(chartValue);
+						backTestOrders.Add(metaOrder);
+					}
+					this.Commit(backTestOrders, ES_INDEX + "-orders");
+
+					/* -- don't save the charts, instead, we upload the backtest report json
+					Console.WriteLine("[ElasticSearchResultHandler] + Storing result charts...");
+					//backtests-charts
+					var chartValues = new List<BackTestChartPoint>();
+					foreach (var chart in pResult.Charts)
+					{
+						foreach (var series in chart.Value.Series)
+						{
+							foreach (var point in series.Value.Values)
+							{
+								var chartValue = new BackTestChartPoint(
+									backTestResult.id,
+									chart.Key,
+									series.Value,
+									point);
+
+								chartValues.Add(chartValue);
+							}
 						}
 					}
+					_Commit(chartValues, ES_INDEX + "-charts");
+					*/
 				}
-				_Commit(chartValues, ES_INDEX + "-charts");
-				*/
+				catch (Exception ex)
+				{
+					this.ErrorMessage("Error uploading to ElasticSearch: " + ex.Message);
+				}
+
 				base.SaveResults(name, pResult);
 
 				Console.WriteLine("Uploading results to S3: reports/" + backTestResult.id);
 
-				//upload JSON file
-				var filePath = Path.Combine(Directory.GetCurrentDirectory(), name);
-				var tx = new TransferUtility(S3_CLIENT);
-				tx.UploadAsync(filePath, Config.Get("aws-bucket", "lean-option-data"), "reports/" + backTestResult.id).Wait();
-				Console.WriteLine("Upload complete.");
+				try
+				{
+					//upload JSON file
+					var filePath = Path.Combine(Directory.GetCurrentDirectory(), name);
+					var tx = new TransferUtility(S3_CLIENT);
+					tx.UploadAsync(filePath, Config.Get("aws-bucket", "lean-option-data"), "reports/" + backTestResult.id).Wait();
+					Console.WriteLine("Upload complete.");
+				} catch (Exception ex)
+				{
+					this.ErrorMessage("Error uploading to S3: " + ex.Message);
+				}
 			}
 		}
 

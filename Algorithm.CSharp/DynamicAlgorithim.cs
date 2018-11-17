@@ -163,7 +163,7 @@ namespace QuantConnect.Algorithm.CSharp
             List<object> parameterValues = new List<object>();
             foreach(var p in ctor.GetParameters())
             {
-                var value = GetParameterGeneric(p.Name.ToLower(), p.ParameterType, p.DefaultValue);
+                var value = GetParameterGeneric(p.Name, p.ParameterType, p.DefaultValue);
 
                 Log(String.Format("{0}\t{1}= {2}", p.Name, p.ParameterType.Name, value));
 
@@ -181,7 +181,12 @@ namespace QuantConnect.Algorithm.CSharp
         private object GetParameterGeneric(string parameterName, Type parameterCastType, object defaultValue)
         {
             if (parameterName == "resolution")
-                return consolidatedResolution;
+            {
+                if (parameterCastType == typeof(Resolution))
+                    return UniverseSettings.Resolution;
+                else
+                    return consolidatedResolution;
+            }
             var paramValue = GetParameter(parameterName);
             if (string.IsNullOrEmpty(paramValue))
                 return defaultValue;
@@ -205,6 +210,10 @@ namespace QuantConnect.Algorithm.CSharp
             if (parameterCastType == typeof(string))
             {
                 return (object)paramValue;
+            }
+            if (parameterCastType.IsEnum)
+            {
+                return (object)Enum.Parse(parameterCastType, paramValue);
             }
 
             throw new Exception("cast type not supported!");

@@ -36,6 +36,7 @@ namespace QuantConnect.Algorithm.CSharp
     public class DynamicAlgorithim : QCAlgorithmFramework
     {
         private decimal _takeProfit = 0;
+        private TimeSpan consolidatedResolution = new TimeSpan(0, 15, 0);
 
         public override void Initialize()
         {
@@ -88,17 +89,13 @@ namespace QuantConnect.Algorithm.CSharp
             SetParametersOnObject("portfolio", portfolio);
             SetParametersOnObject("execution", execution);
 
-            int period = GetParameterAs<int>("period", 14);
-            double threshold = GetParameterAs<double>("threshold", 0);
-            double step = GetParameterAs<double>("step", 0);
-            bool inverted = GetParameterAs<bool>("inverted", false);
-
-            //TODO: need to dynamically call ctor with parameters
-            var alpha = (AlphaModel)Activator.CreateInstance(FindType(alphaModel), new TimeSpan(0, 15, 0), period, threshold, step, inverted);
+            var alpha = CreateAlphaInstance(FindType(alphaModel));// (AlphaModel)Activator.CreateInstance(FindType(alphaModel), new TimeSpan(0, 15, 0), period, threshold, step, inverted);
 
             SetAlpha(alpha);
             SetPortfolioConstruction(portfolio);
             SetExecution(execution);
+
+            Log("====== Starting... ======");
 
             InsightsGenerated += (algorithm, data) => Log($"{Time}: INSIGHT>> {string.Join(" | ", data.Insights)}");
 
@@ -158,31 +155,56 @@ namespace QuantConnect.Algorithm.CSharp
             }
         }
 
+        private AlphaModel CreateAlphaInstance(Type alphaModelType)
+        {
+            Log("Initializing Alpha with parameters:");
+            //TODO: find best fitting CTOR
+            var ctor = alphaModelType.GetConstructors()[0]; //pick first one for now
+            List<object> parameterValues = new List<object>();
+            foreach(var p in ctor.GetParameters())
+            {
+                var value = GetParameterGeneric(p.Name.ToLower(), p.ParameterType, p.DefaultValue);
+
+                Log(String.Format("{0}\t{1}= {2}", p.Name, p.ParameterType.Name, value));
+
+                parameterValues.Add(value);
+            }
+
+            return (AlphaModel)ctor.Invoke(parameterValues.ToArray());
+        }
+
         private T GetParameterAs<T>(string parameterName, T defaultValue)
         {
+            return (T)GetParameterGeneric(parameterName, typeof(T), defaultValue);
+        }
+
+        private object GetParameterGeneric(string parameterName, Type parameterCastType, object defaultValue)
+        {
+            if (parameterName == "resolution")
+                return consolidatedResolution;
             var paramValue = GetParameter(parameterName);
             if (string.IsNullOrEmpty(paramValue))
                 return defaultValue;
 
-            if (typeof(T) == typeof(bool))
+            if (parameterCastType == typeof(bool))
             {
-                return (T)(object)bool.Parse(paramValue);
+                return (object)bool.Parse(paramValue);
             }
-            if (typeof(T) == typeof(int))
+            if (parameterCastType == typeof(int))
             {
-                return (T)(object)int.Parse(paramValue);
+                return (object)int.Parse(paramValue);
             }
-            if (typeof(T) == typeof(Double))
+            if (parameterCastType == typeof(Double))
             {
-                return (T)(object)double.Parse(paramValue);
+                return (object)double.Parse(paramValue);
             }
-            if (typeof(T) == typeof(Decimal))
+            if (parameterCastType == typeof(Decimal))
             {
-                return (T)(object)decimal.Parse(paramValue);
+                return (object)decimal.Parse(paramValue);
             }
-            if (typeof(T) == typeof(string))
+            if (parameterCastType == typeof(string))
             {
-                return (T)(object)paramValue;
+                return (object)paramValue;
             }
 
             throw new Exception("cast type not supported!");

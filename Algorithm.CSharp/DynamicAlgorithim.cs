@@ -157,7 +157,7 @@ namespace QuantConnect.Algorithm.CSharp
 
         private AlphaModel CreateAlphaInstance(Type alphaModelType)
         {
-            Log("Initializing Alpha with parameters:");
+            Log("Initializing " + alphaModelType.Name + " with parameters:");
             //TODO: find best fitting CTOR
             var ctor = alphaModelType.GetConstructors()[0]; //pick first one for now
             List<object> parameterValues = new List<object>();

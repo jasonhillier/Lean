@@ -83,7 +83,7 @@ namespace QuantConnect.Algorithm.CSharp
             var portfolio = (IPortfolioConstructionModel)Activator.CreateInstance(FindType(portfolioModel));
             var execution = (IExecutionModel)Activator.CreateInstance(FindType(executionModel));
 
-            this.Log("Using portfoliom model: " + portfolio.GetType().Name);
+            this.Log("Using portfolio model: " + portfolio.GetType().Name);
             this.Log("Using execution model: " + execution.GetType().Name);
 
             SetParametersOnObject("portfolio", portfolio);
@@ -165,7 +165,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 var value = GetParameterGeneric(p.Name, p.ParameterType, p.DefaultValue);
 
-                Log(String.Format("{0}\t{1}= {2}", p.Name, p.ParameterType.Name, value));
+                Log(String.Format("- {0}\t{1}= {2}", p.Name, p.ParameterType.Name, value));
 
                 parameterValues.Add(value);
             }
@@ -178,7 +178,41 @@ namespace QuantConnect.Algorithm.CSharp
             return (T)GetParameterGeneric(parameterName, typeof(T), defaultValue);
         }
 
-        private object GetParameterGeneric(string parameterName, Type parameterCastType, object defaultValue)
+		private object ConvertString(string value, Type parameterCastType, object defaultValue)
+		{
+			if (string.IsNullOrEmpty(value))
+				return defaultValue;
+
+			if (parameterCastType == typeof(bool))
+			{
+				return (object)bool.Parse(value);
+			}
+			if (parameterCastType == typeof(int))
+			{
+				return (object)int.Parse(value);
+			}
+			if (parameterCastType == typeof(Double))
+			{
+				return (object)double.Parse(value);
+			}
+			if (parameterCastType == typeof(Decimal))
+			{
+				return (object)decimal.Parse(value);
+			}
+			if (parameterCastType == typeof(string))
+			{
+				return (object)value;
+			}
+			if (parameterCastType.IsEnum)
+			{
+				return (object)Enum.Parse(parameterCastType, value);
+			}
+
+			throw new Exception("cast type not supported!");
+		}
+
+
+		private object GetParameterGeneric(string parameterName, Type parameterCastType, object defaultValue)
         {
             if (parameterName == "resolution")
             {
@@ -188,39 +222,29 @@ namespace QuantConnect.Algorithm.CSharp
                     return consolidatedResolution;
             }
             var paramValue = GetParameter(parameterName);
-            if (string.IsNullOrEmpty(paramValue))
-                return defaultValue;
 
-            if (parameterCastType == typeof(bool))
-            {
-                return (object)bool.Parse(paramValue);
-            }
-            if (parameterCastType == typeof(int))
-            {
-                return (object)int.Parse(paramValue);
-            }
-            if (parameterCastType == typeof(Double))
-            {
-                return (object)double.Parse(paramValue);
-            }
-            if (parameterCastType == typeof(Decimal))
-            {
-                return (object)decimal.Parse(paramValue);
-            }
-            if (parameterCastType == typeof(string))
-            {
-                return (object)paramValue;
-            }
-            if (parameterCastType.IsEnum)
-            {
-                return (object)Enum.Parse(parameterCastType, paramValue);
-            }
-
-            throw new Exception("cast type not supported!");
+			return ConvertString(paramValue, parameterCastType, defaultValue);
         }
 
 		private void SetParametersOnObject(string domain, object o)
         {
+			foreach(FieldInfo field in o.GetType().GetFields())
+			{
+				if (field.IsPublic)
+				{
+					var paramVal = GetParameter(domain + "-" + field.Name.ToLower());
+					if (string.IsNullOrEmpty(paramVal))
+						paramVal = GetParameter(domain + "-" + field.Name);
+
+					if (!string.IsNullOrEmpty(paramVal))
+					{
+						var castedVal = ConvertString(paramVal, field.FieldType, field.GetValue(o));
+						field.SetValue(o, castedVal);
+						Log(String.Format("- FIELD {0}.{1}= {2}", o.GetType().Name, field.Name, castedVal));
+					}
+				}
+			}
+
             foreach(PropertyInfo prop in o.GetType().GetProperties())
             {
                 if (prop.CanWrite)
@@ -231,8 +255,10 @@ namespace QuantConnect.Algorithm.CSharp
 
                     if (!string.IsNullOrEmpty(paramVal))
                     {
-                        prop.SetValue(o, paramVal);
-                    }
+						var castedVal = ConvertString(paramVal, prop.PropertyType, prop.GetValue(o));
+						prop.SetValue(o, castedVal);
+						Log(String.Format("- PROPERTY {0}.{1}= {2}", o.GetType().Name, prop.Name, castedVal));
+					}
                 }
             }
         }

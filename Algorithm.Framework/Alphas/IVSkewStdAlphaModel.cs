@@ -30,7 +30,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class IVSkewStdAlphaModel : AlphaModel
+    public class IVSkewStdAlphaModel : OptionAlphaModel
     {
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
@@ -209,27 +209,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             }
 
             return State.Neutral;
-        }
-
-        public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
-        {
-            chain = null;
-
-            if (algorithm.CurrentSlice == null ||
-                algorithm.CurrentSlice.OptionChains == null)
-                return false;
-
-            //find the option chain that has the underlying
-            foreach(var kvp in algorithm.CurrentSlice.OptionChains)
-            {
-                if (kvp.Key.Underlying == underlyingSymbol)
-                {
-                    chain = kvp.Value;
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>

@@ -29,7 +29,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class IVStdAlphaModel : AlphaModel
+    public class IVStdAlphaModel : OptionAlphaModel
     {
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
@@ -75,9 +75,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         public override IEnumerable<Insight> Update(QCAlgorithmFramework algorithm, Slice data)
         {
             var insights = new List<Insight>();
-            if (!_timeTrigger)
-                return insights;
-            _timeTrigger = false;
 
             foreach (var kvp in _symbolDataBySymbol)
             {
@@ -157,7 +154,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 {
                     if (!added.Symbol.HasUnderlying)
                     {
-                        algorithm.Consolidate(added.Symbol, _resolution, HandleAction);
+                        //algorithm.Consolidate(added.Symbol, _resolution, HandleAction);
 
                         //var consolidator = algorithm.ResolveConsolidator(added.Symbol, _resolution);
                         //consolidator.DataConsolidated += Consolidator_DataConsolidated;
@@ -186,17 +183,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             }
         }
 
-        void HandleAction(TradeBar obj)
-        {
-            _timeTrigger = true;
-        }
-
-
-        void Consolidator_DataConsolidated(object sender, IBaseData consolidated)
-        {
-            _timeTrigger = true;
-        }
-
 
         /// <summary>
         /// Determines the new state. This is basically cross-over detection logic that
@@ -218,19 +204,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             }
 
             return State.Neutral;
-        }
-
-        public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
-        {
-            chain = null;
-            //TODO: uh derp
-            Symbol optionSymbol = Symbol.Create(underlyingSymbol.Value, SecurityType.Option, Market.USA);
-
-            if (algorithm.CurrentSlice == null ||
-                algorithm.CurrentSlice.OptionChains == null)
-                return false;
-
-            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol.Value, out chain);
         }
 
         /// <summary>

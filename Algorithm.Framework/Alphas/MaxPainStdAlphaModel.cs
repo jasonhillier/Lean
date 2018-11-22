@@ -30,7 +30,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class MaxPainSTDAlphaModel : AlphaModel
+    public class MaxPainStdAlphaModel : OptionAlphaModel
     {
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
@@ -48,7 +48,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         /// </summary>
         /// <param name="period">The RSI indicator period</param>
         /// <param name="resolution">The resolution of data sent into the RSI indicator</param>
-        public MaxPainSTDAlphaModel(
+        public MaxPainStdAlphaModel(
             TimeSpan resolution,
             int period = 14,
             double threshold = 0.7,
@@ -63,7 +63,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             _step = (step == 0) ? threshold / 2 : step;
             _inverted = inverted;
 
-            Name = $"{nameof(MaxPainSTDAlphaModel)}({_period},{_resolution})";
+            Name = $"{nameof(MaxPainStdAlphaModel)}({_period},{_resolution})";
         }
 
         /// <summary>
@@ -255,28 +255,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 
 			return largestBidOption.Strike;
 		}
-
-
-		public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
-        {
-            chain = null;
-
-            if (algorithm.CurrentSlice == null ||
-                algorithm.CurrentSlice.OptionChains == null)
-                return false;
-
-            //find the option chain that has the underlying
-            foreach(var kvp in algorithm.CurrentSlice.OptionChains)
-            {
-                if (kvp.Key.Underlying == underlyingSymbol)
-                {
-                    chain = kvp.Value;
-                    return true;
-                }
-            }
-
-            return false;
-        }
 
 		/// <summary>
 		/// Get all available options for target expiration.

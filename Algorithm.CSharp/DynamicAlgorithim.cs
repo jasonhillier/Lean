@@ -106,6 +106,11 @@ namespace QuantConnect.Algorithm.CSharp
         {
             //TODO: option to only have single position
             Log($"{Time}: ORDER_EVENT: {orderEvent}");
+            //we stop the algorithim if it starts trying to post invalid orders
+            if (orderEvent.Status == OrderStatus.Invalid)
+            {
+                this.Quit("ABORT ORDER FAILURE! " + orderEvent.Message);
+            }
         }
 
         public override void OnAssignmentOrderEvent(OrderEvent assignmentEvent)

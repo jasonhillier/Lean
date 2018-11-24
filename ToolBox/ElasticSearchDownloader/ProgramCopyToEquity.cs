@@ -178,7 +178,11 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
         }
         public DateTime date
         {
-            get { return _quote.date; }
+			get
+			{
+				TimeZoneInfo easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); //New York exchange
+				return TimeZoneInfo.ConvertTimeToUtc(this._quote.date, easternZone);
+			}
         }
     }
 }

@@ -114,7 +114,7 @@ namespace QuantConnect.ToolBox.ElasticSearchDownloader
                     )*/
                 )
                 .Scroll(100000)
-                .Sort(ss => ss.Ascending(f => f.date))
+                .Sort(ss => ss.Descending(f => f.date))
             );
 
             Log.Trace("Found {0} quotes", search.HitsMetadata.Total);

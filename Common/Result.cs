@@ -17,6 +17,9 @@ namespace QuantConnect
         /// </summary>
         public bool IsFrameworkAlgorithm;
 
+		public int Errors { get; set; }
+		public string ErrorMessage { get; set; }
+
         /// <summary>
         /// Contains population averages scores over the life of the algorithm
         /// </summary>

@@ -41,11 +41,11 @@ namespace QuantConnect.Lean.Engine.Results
 			{
 				//backtests
 				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
-				backTestResult.errors = this.Algorithm.ErrorMessages.Count;
+				backTestResult.errors = this.Algorithm.RunTimeError != null ? 1 : 0;
 				if (backTestResult.errors > 0)
 				{
 					//get the last one
-					backTestResult.errorMessage = this.Algorithm.ErrorMessages.ToList()[backTestResult.errors - 1];
+					backTestResult.errorMessage = this.Algorithm.RunTimeError.Message;
 				}
 				try
 				{

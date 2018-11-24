@@ -109,7 +109,7 @@ namespace QuantConnect.Algorithm.CSharp
             //we stop the algorithim if it starts trying to post invalid orders
             if (orderEvent.Status == OrderStatus.Invalid && orderEvent.Message.ToLower().Contains("insufficient"))
 			{
-                this.Quit("ABORT ORDER FAILURE! " + orderEvent.Message);
+				throw new Exception("ABORT ORDER FAILURE! " + orderEvent.Message);
             }
         }
 

@@ -41,6 +41,12 @@ namespace QuantConnect.Lean.Engine.Results
 			{
 				//backtests
 				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
+				backTestResult.errors = this.Algorithm.ErrorMessages.Count;
+				if (backTestResult.errors > 0)
+				{
+					//get the last one
+					backTestResult.errorMessage = this.Algorithm.ErrorMessages.ToList()[backTestResult.errors - 1];
+				}
 				try
 				{
 					this.Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
@@ -219,6 +225,8 @@ namespace QuantConnect.Lean.Engine.Results
 			public string name { get; set; }
 			public DateTime date { get; set; }
 			public string id { get; set; }
+			public int errors { get; set; }
+			public string errorMessage { get; set; }
 
 			public IDictionary<string, string> parameters { get; set; }
 			public Dictionary<string, double> stats { get; set; }

@@ -40,10 +40,16 @@ namespace QuantConnect.Lean.Engine.Results
 			if (pResult.Statistics.Count > 0)
 			{
 				//backtests
-				var backTestResult = new BackTestResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
+				var backTestResult = new BackTestMinimalResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
+				pResult.errors = backTestResult.errors = this.Algorithm.RunTimeError != null ? 1 : 0;
+				if (backTestResult.errors > 0)
+				{
+					//get the last one
+					pResult.errorMessage = backTestResult.errorMessage = this.Algorithm.RunTimeError.Message;
+				}
 				try
 				{
-					this.Commit(new List<BackTestResult>() { backTestResult }, ES_INDEX);
+					this.Commit(new List<BackTestMinimalResult>() { backTestResult }, ES_INDEX);
 
 					Console.WriteLine("[ElasticSearchResultHandler] Storing results for " + backTestResult.id + "...");
 
@@ -196,9 +202,9 @@ namespace QuantConnect.Lean.Engine.Results
 			public string id { get; set; }
 		}
 
-		class BackTestResult
+		class BackTestMinimalResult
 		{
-			public BackTestResult(string Name, IDictionary<string, string> Params, IDictionary<string,string> Stats, IDictionary<string, string> RuntimeStats)
+			public BackTestMinimalResult(string Name, IDictionary<string, string> Params, IDictionary<string,string> Stats, IDictionary<string, string> RuntimeStats)
 			{
 				name = Name;
 				date = DateTime.Now;
@@ -219,6 +225,8 @@ namespace QuantConnect.Lean.Engine.Results
 			public string name { get; set; }
 			public DateTime date { get; set; }
 			public string id { get; set; }
+			public int errors { get; set; }
+			public string errorMessage { get; set; }
 
 			public IDictionary<string, string> parameters { get; set; }
 			public Dictionary<string, double> stats { get; set; }

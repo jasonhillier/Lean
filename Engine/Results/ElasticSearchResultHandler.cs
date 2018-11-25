@@ -42,6 +42,7 @@ namespace QuantConnect.Lean.Engine.Results
 				//backtests
 				var backTestResult = new BackTestMinimalResult(_job.GetAlgorithmName(), _job.Parameters, pResult.Statistics, this.Algorithm.RuntimeStatistics);
 				pResult.errors = backTestResult.errors = this.Algorithm.RunTimeError != null ? 1 : 0;
+				pResult.Parameters = _job.Parameters;
 				if (backTestResult.errors > 0)
 				{
 					//get the last one

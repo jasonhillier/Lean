@@ -5,20 +5,21 @@ using QuantConnect.Packets;
 
 namespace QuantConnect
 {
-    /// <summary>
-    /// Base class for backtesting and live results that packages result data.
-    /// <see cref="LiveResult"/>
-    /// <see cref="BacktestResult"/>
-    /// </summary>
-    public class Result
-    {
-        /// <summary>
-        /// Determines if the compiled assembly contains a framework algorithm implementation
-        /// </summary>
-        public bool IsFrameworkAlgorithm;
+	/// <summary>
+	/// Base class for backtesting and live results that packages result data.
+	/// <see cref="LiveResult"/>
+	/// <see cref="BacktestResult"/>
+	/// </summary>
+	public class Result
+	{
+		/// <summary>
+		/// Determines if the compiled assembly contains a framework algorithm implementation
+		/// </summary>
+		public bool IsFrameworkAlgorithm;
 
 		public int errors { get; set; }
 		public string errorMessage { get; set; }
+		public IDictionary<string, string> Parameters {get;set;}
 
         /// <summary>
         /// Contains population averages scores over the life of the algorithm

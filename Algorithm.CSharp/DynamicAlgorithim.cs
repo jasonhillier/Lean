@@ -36,6 +36,7 @@ namespace QuantConnect.Algorithm.CSharp
     public class DynamicAlgorithim : QCAlgorithmFramework
     {
         private decimal _takeProfit = 0;
+		private decimal _stopLoss = 0;
         private TimeSpan consolidatedResolution = new TimeSpan(0, 15, 0);
 
         public override void Initialize()
@@ -51,11 +52,13 @@ namespace QuantConnect.Algorithm.CSharp
             DateTime startDate = DateTime.Parse(GetParameter("start-date"));
             DateTime endDate = DateTime.Parse(GetParameter("end-date"));
 
-            decimal.TryParse(GetParameter("take-profit"), out _takeProfit);
-            if (_takeProfit > 0)
-                this.Log("take-profit set to: " + _takeProfit);
+			_takeProfit = GetParameterAs("take-profit", 0m);
+			_stopLoss = Math.Abs(GetParameterAs("stop-loss", 0m));
 
-            SetStartDate(startDate);
+            this.Log("take-profit set to: " + _takeProfit);
+			this.Log("stop-loss set to: " + _stopLoss);
+
+			SetStartDate(startDate);
             SetEndDate(endDate);
             SetCash(100000);
 
@@ -120,9 +123,9 @@ namespace QuantConnect.Algorithm.CSharp
 				Log("CLOSING ASSIGNED POSITION at MARKET!");
 				//close assigned positions
 				if (assignmentEvent.Direction == OrderDirection.Buy)
-					this.MarketOrder(assignmentEvent.Symbol.Underlying, -assignmentEvent.FillQuantity * 100);
+					this.MarketOrder(assignmentEvent.Symbol.Underlying, -assignmentEvent.FillQuantity * 100, true, "assigned-close");
 				else if (assignmentEvent.Direction == OrderDirection.Sell)
-					this.MarketOrder(assignmentEvent.Symbol.Underlying, assignmentEvent.FillQuantity * 100);
+					this.MarketOrder(assignmentEvent.Symbol.Underlying, assignmentEvent.FillQuantity * 100, true, "assigned-close");
 			}
 
 			base.OnAssignmentOrderEvent(assignmentEvent);
@@ -130,13 +133,20 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override void OnData(Slice slice)
         {
-            if (_takeProfit > 0)
-            {
-                if (this.Portfolio.TotalUnrealizedProfit > this.Portfolio.TotalAbsoluteHoldingsCost * _takeProfit)
-                {
-                    this.Liquidate();
-                }
-            }
+			foreach(var p in this.Portfolio.Values)
+			{
+				if (p.Quantity != 0)
+				{
+					if (_takeProfit > 0 && p.UnrealizedProfitPercent > _takeProfit)
+					{
+						this.MarketOrder(p.Symbol, -p.Quantity, true, "take-profit");
+					}
+					else if (_stopLoss > 0 && p.UnrealizedProfitPercent < -_stopLoss)
+					{
+						this.MarketOrder(p.Symbol, -p.Quantity, true, "stop-loss");
+					}
+				}
+			}
         }
 
         class DynamicOptionUniverseSelectionModel : OptionUniverseSelectionModel

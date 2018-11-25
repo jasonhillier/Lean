@@ -73,14 +73,16 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             var insights = new List<Insight>();
             foreach (var kvp in _symbolDataBySymbol)
             {
-                if (!data.ContainsKey(kvp.Key) ||
-                    data[kvp.Key] == null)
+                if (!data.ContainsKey(kvp.Key) || data[kvp.Key] == null)
                     continue;
 
                 var symbol = kvp.Key;
                 kvp.Value.Update(data[kvp.Key]);
 
                 var std = kvp.Value.STD;
+				if (!std.IsReady)
+					continue;
+
                 var previousState = kvp.Value.State;
                 var previousMag = kvp.Value.Mag;
                 double mag;
@@ -246,8 +248,11 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                     value *= 100;
                 IndicatorSeries.AddPoint(Indicator.Current.Time, value);
 
-                STD.Update(Indicator.Current.Time, value);
-                IndicatorSeriesSTD.AddPoint(STD.Current.Time, STD.Current.Value);
+				if (Indicator.IsReady)
+				{
+					STD.Update(Indicator.Current.Time, value);
+					IndicatorSeriesSTD.AddPoint(STD.Current.Time, STD.Current.Value);
+				}
             }
         }
 

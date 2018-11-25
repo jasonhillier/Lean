@@ -150,6 +150,7 @@
     <Compile Include="Portfolio\IVCalendarPortfolioModel.cs" />
     <Compile Include="Alphas\ExpiryAlphaModel.cs" />
     <Compile Include="Alphas\ROCStdAlphaModel.cs" />
+    <Compile Include="OptionTools.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">

@@ -139,10 +139,12 @@ namespace QuantConnect.Algorithm.CSharp
 				{
 					if (_takeProfit > 0 && p.UnrealizedProfitPercent > _takeProfit)
 					{
+                        Log("TAKE PROFIT");
 						this.MarketOrder(p.Symbol, -p.Quantity, true, "take-profit");
 					}
 					else if (_stopLoss > 0 && p.UnrealizedProfitPercent < -_stopLoss)
 					{
+                        Log("STOP LOSS");
 						this.MarketOrder(p.Symbol, -p.Quantity, true, "stop-loss");
 					}
 				}

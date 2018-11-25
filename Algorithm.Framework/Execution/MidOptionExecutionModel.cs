@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Algorithm.Framework.Portfolio;
 using QuantConnect.Data.Market;
@@ -37,13 +38,19 @@ namespace QuantConnect.Algorithm.Framework.Execution
         /// <param name="targets">The portfolio targets to be ordered</param>
         public override void Execute(QCAlgorithmFramework algorithm, IPortfolioTarget[] targets)
         {
+            //So target.Quantity represents the ABSOLUTE holding value in the portfolio (usually based on indicator magnitude)
+            // - the execution model should seek to bring the portfolio in line with it.
             _targetsCollection.AddRange(targets);
 
             foreach (var target in _targetsCollection.OrderByMarginImpact(algorithm))
             {
-                var existing = algorithm.Securities[target.Symbol].Holdings.Quantity
-                    + algorithm.Transactions.GetOpenOrders(target.Symbol).Sum(o => o.Quantity);
-                var quantity = target.Quantity - existing;
+                //only care about derivatives
+                if (!target.Symbol.HasUnderlying)
+                    continue;
+
+                var pendingInUnderlying = OptionTools.GetNetHoldingQuantity(algorithm, target.Symbol);
+
+                decimal quantity = target.Quantity - pendingInUnderlying;
 
                 if (quantity != 0)
                 {

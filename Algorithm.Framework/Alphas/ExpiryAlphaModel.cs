@@ -29,7 +29,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class ExpiryAlphaModel : AlphaModel
+    public class ExpiryAlphaModel : OptionAlphaModel
     {
         private readonly Dictionary<Symbol,bool> _symbolDataBySymbol = new Dictionary<Symbol,bool>();
 
@@ -71,9 +71,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         public override IEnumerable<Insight> Update(QCAlgorithmFramework algorithm, Slice data)
         {
             var insights = new List<Insight>();
-            if (!_timeTrigger)
-                return insights;
-            _timeTrigger = false;
 
             foreach (var symbol in _symbolDataBySymbol.Keys.ToList())
             {
@@ -131,8 +128,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 {
                     if (!added.Symbol.HasUnderlying)
                     {
-                        algorithm.Consolidate(added.Symbol, _resolution, HandleAction);
-
                         _symbolDataBySymbol.Add(added.Symbol, false);
 
                         //var consolidator = algorithm.ResolveConsolidator(added.Symbol, _resolution);
@@ -157,32 +152,5 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                     */
             }
         }
-
-        void HandleAction(TradeBar obj)
-        {
-            _timeTrigger = true;
-        }
-
-
-        void Consolidator_DataConsolidated(object sender, IBaseData consolidated)
-        {
-            _timeTrigger = true;
-        }
-
-
-
-        public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
-        {
-            chain = null;
-            //TODO: uh derp
-            Symbol optionSymbol = Symbol.Create(underlyingSymbol.Value, SecurityType.Option, Market.USA);
-
-            if (algorithm.CurrentSlice == null ||
-                algorithm.CurrentSlice.OptionChains == null)
-                return false;
-
-            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol.Value, out chain);
-        }
-
     }
 }

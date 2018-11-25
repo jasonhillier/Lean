@@ -57,15 +57,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
         public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
         {
-            chain = null;
-
-            if (algorithm.CurrentSlice == null ||
-                algorithm.CurrentSlice.OptionChains == null)
-                return false;
-
-			var optionSymbol = Symbol.Create(underlyingSymbol.Value, SecurityType.Option, underlyingSymbol.ID.Market);
-
-            return algorithm.CurrentSlice.OptionChains.TryGetValue(optionSymbol, out chain);
+            return OptionTools.TryGetOptionChain(algorithm, underlyingSymbol, out chain);
         }
 
         /// <summary>

@@ -82,7 +82,6 @@
     <Compile Include="Alphas\INamedModel.cs" />
     <Compile Include="Alphas\IVSkewStdAlphaModel.cs" />
     <Compile Include="Alphas\NullAlphaModel.cs" />
-    <Compile Include="Alphas\StdDevAlphaModel.cs" />
     <Compile Include="Alphas\BasePairsTradingAlphaModel.cs" />
     <Compile Include="Alphas\RsiAlphaModel.cs" />
     <Compile Include="Execution\ExecutionModel.cs" />
@@ -144,12 +143,13 @@
     <Compile Include="Portfolio\SyntheticPortfolioModel.cs" />
     <Compile Include="Execution\MidOptionExecutionModel.cs" />
     <Compile Include="Alphas\VWAPStdDevAlphaModel.cs" />
-    <Compile Include="Alphas\IndicatorBaseAlphaModel.cs" />
+    <Compile Include="Alphas\IndicatorThresholdAlphaModel.cs" />
     <Compile Include="Portfolio\RiskReversalPortfolioModel.cs" />
-    <Compile Include="Alphas\RelativeStrengthAlphaModel.cs" />
+    <Compile Include="Alphas\RSIStdAlphaModel.cs" />
     <Compile Include="Alphas\IVStdAlphaModel.cs" />
     <Compile Include="Portfolio\IVCalendarPortfolioModel.cs" />
     <Compile Include="Alphas\ExpiryAlphaModel.cs" />
+    <Compile Include="Alphas\ROCStdAlphaModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">

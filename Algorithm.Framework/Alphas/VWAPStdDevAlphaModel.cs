@@ -28,7 +28,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class VWAPStdDevAlphaModel : IndicatorThresholdAlphaModel<VWAPStandardDeviation>
+    public class VWAPStdDevAlphaModel : IndicatorThresholdAlphaModel<VolumeWeightedAveragePriceIndicator,TradeBar>
     {
         public VWAPStdDevAlphaModel(
             TimeSpan resolution,
@@ -39,5 +39,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             : base(resolution, period, threshold, step, inverted)
         {
         }
+
+        public override bool IsPercent { get { return false; }}
     }
 }

@@ -16,6 +16,8 @@
 using System;
 using System.Collections.Generic;
 using QuantConnect.Data;
+using QuantConnect.Data.Consolidators;
+using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Indicators;
 using QuantConnect.Util;
@@ -26,39 +28,38 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
     /// trigger a new insight.
     /// </summary>
-    public class RelativeStrengthAlphaModel : AlphaModel
+    public abstract class IndicatorThresholdAlphaModel<T,Z> : AlphaModel
+        where T : IndicatorBase<Z>
+        where Z : IBaseData
     {
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
         private readonly int _period;
         private readonly TimeSpan _resolution;
-        private readonly double _threshold;
-        private readonly double _lowThreshold;
+		private readonly double _threshold;
         private readonly double _step;
-        private readonly bool _inverted;
+		private readonly bool _inverted;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RsiAlphaModel"/> class
-        /// </summary>
-        /// <param name="period">The RSI indicator period</param>
-        /// <param name="resolution">The resolution of data sent into the RSI indicator</param>
-        public RelativeStrengthAlphaModel(
-            TimeSpan resolution,
-            int period = 14,
-            double threshold = 0.7,
+		/// <summary>
+		/// Initializes a new instance of the <see cref="StdDevAlphaModel"/> class
+		/// </summary>
+        public IndicatorThresholdAlphaModel(
+			TimeSpan resolution,
+			int period = 20,
+            double threshold = 0.2d,
             double step = 0,
-            bool inverted = false
+			bool inverted = false
             )
         {
             _period = period;
             _resolution = resolution;
-            _threshold = threshold;
-            _lowThreshold = Math.Abs(1 - _threshold);
-            _step = (step == 0) ? threshold / 10 : step;
-            _inverted = inverted;
-
-            Name = $"{nameof(RsiAlphaModel)}({_period},{_resolution})";
+			_threshold = threshold;
+            _step = step == 0 ? threshold/2 : step;
+			_inverted = inverted;
+            Name = $"{nameof(IndicatorThresholdAlphaModel<T,Z>)}({_period},{_resolution})";
         }
+
+        public abstract bool IsPercent { get; }
 
         /// <summary>
         /// Updates this alpha model with the latest data from the algorithm.
@@ -72,28 +73,39 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             var insights = new List<Insight>();
             foreach (var kvp in _symbolDataBySymbol)
             {
-                var symbol = kvp.Key;
-                var rsi = kvp.Value.RSI;
-                var previousState = kvp.Value.State;
-                var state = GetState(rsi, previousState);
+                if (!data.ContainsKey(kvp.Key) ||
+                    data[kvp.Key] == null)
+                    continue;
 
-                if (state != previousState && rsi.IsReady)
+                var symbol = kvp.Key;
+                kvp.Value.Update(data[kvp.Key]);
+
+                var std = kvp.Value.STD;
+                var previousState = kvp.Value.State;
+                var previousMag = kvp.Value.Mag;
+                double mag;
+                var state = GetState(kvp.Value.Indicator.Current.Value, std, out mag);
+
+                if ((state != previousState || mag > previousMag) && std.IsReady)
                 {
                     var insightPeriod = _resolution.Multiply(_period);
 
                     switch (state)
                     {
+						case State.Neutral:
+							insights.Add(Insight.Price(symbol, insightPeriod, InsightDirection.Flat));
+							break;
+						case State.TrippedHigh:
+                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down, mag));
+                            break;
                         case State.TrippedLow:
-                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Down : InsightDirection.Up));
+                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Down : InsightDirection.Up, mag));
                             break;
-
-                        case State.TrippedHigh:
-                            insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down));
-                            break;
-                    }
+					}
                 }
 
                 kvp.Value.State = state;
+                kvp.Value.Mag = mag;
             }
 
             return insights;
@@ -127,12 +139,16 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             {
                 if (!_symbolDataBySymbol.ContainsKey(added.Symbol))
                 {
-                    if (!added.Symbol.HasUnderlying)
+                    if (!added.Symbol.HasUnderlying) //ignore derivatives
                     {
-                        var rsi = algorithm.RSI(added.Symbol, _period, MovingAverageType.Wilders, Resolution.Minute);
-                        var symbolData = new SymbolData(added.Symbol, rsi);
+                        var symbolData = new SymbolData(algorithm, added.Symbol, _period, this.IsPercent);
                         _symbolDataBySymbol[added.Symbol] = symbolData;
                         addedSymbols.Add(symbolData.Symbol);
+
+                        var chart = new Chart(added.Symbol.Value + " - " + typeof(T).Name);
+                        chart.AddSeries(symbolData.IndicatorSeries);
+                        chart.AddSeries(symbolData.IndicatorSeriesSTD);
+                        algorithm.AddChart(chart);
                     }
                 }
             }
@@ -146,45 +162,30 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                         SymbolData symbolData;
                         if (_symbolDataBySymbol.TryGetValue(data.Symbol, out symbolData))
                         {
-                            symbolData.RSI.Update(data.EndTime, data.Value);
+                            symbolData.Update((TradeBar)data);
                         }
                     });
             }
         }
 
         /// <summary>
-        /// Determines the new state. This is basically cross-over detection logic that
-        /// includes considerations for bouncing using the configured bounce tolerance.
+        /// Determines the new state.
         /// </summary>
-        private State GetState(RelativeStrengthIndex rsi, State previous)
+        private State GetState(decimal indicatorValue, StandardDeviation std, out double mag)
         {
-            if (rsi > _threshold)
+            mag = 0;
+
+            if (std >= _threshold)
             {
-                return State.TrippedHigh;
+                mag = Math.Round(1 + (((double)std.Current.Value - _threshold)) / _step);
+
+                if (indicatorValue < 0)
+                    return State.TrippedLow;
+                else
+                    return State.TrippedHigh;
             }
 
-            if (rsi < _lowThreshold)
-            {
-                return State.TrippedLow;
-            }
-
-            if (previous == State.TrippedLow)
-            {
-                if (rsi > _lowThreshold + _step)
-                {
-                    return State.Middle;
-                }
-            }
-
-            if (previous == State.TrippedHigh)
-            {
-                if (rsi < _threshold - _step)
-                {
-                    return State.Middle;
-                }
-            }
-
-            return previous;
+			return State.Neutral;
         }
 
         /// <summary>
@@ -194,13 +195,59 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         {
             public Symbol Symbol { get; }
             public State State { get; set; }
-            public RelativeStrengthIndex RSI { get; }
+            public T Indicator { get; }
+            public StandardDeviation STD { get; set; }
+            public double Mag { get; set; }
+            public Series IndicatorSeries { get; }
+            public Series IndicatorSeriesSTD { get; }
+            private bool _indicatorIsPercent;
 
-            public SymbolData(Symbol symbol, RelativeStrengthIndex rsi)
+            public SymbolData(QCAlgorithmFramework algorithm, Symbol symbol, int period, bool indicatorIsPercent)
             {
                 Symbol = symbol;
-                RSI = rsi;
-                State = State.Middle;
+                _indicatorIsPercent = indicatorIsPercent;
+                IndicatorSeries = new Series(typeof(T).Name, SeriesType.Line);
+                IndicatorSeriesSTD = new Series(typeof(T).Name + " STD", SeriesType.Line);
+                //TODO: make this magical auto-detecting better
+                List<object> parameterValues = new List<object>();
+                var ctor = typeof(T).GetConstructors()[0];
+                foreach (var p in ctor.GetParameters())
+                {
+                    var value = p.DefaultValue;
+                    if (p.Name.ToLower() == "period")
+                    {
+                        value = period;
+                    }
+                    parameterValues.Add(value);
+                }
+
+                Indicator = (T)ctor.Invoke(parameterValues.ToArray());
+                Mag = 0;
+                STD = new StandardDeviation(period);
+
+                State = State.Neutral;
+            }
+
+            public void Update(TradeBar currentBar)
+            {
+                IBaseData dataPoint;
+                if (typeof(Z) == typeof(TradeBar))
+                {
+                    dataPoint = currentBar;
+                }
+                else
+                {
+                    dataPoint = new IndicatorDataPoint(currentBar.EndTime, currentBar.Close);
+                }
+                Indicator.Update(dataPoint);
+
+                decimal value = Indicator.Current.Value;
+                if (_indicatorIsPercent)
+                    value *= 100;
+                IndicatorSeries.AddPoint(Indicator.Current.Time, value);
+
+                STD.Update(Indicator.Current.Time, value);
+                IndicatorSeriesSTD.AddPoint(STD.Current.Time, STD.Current.Value);
             }
         }
 
@@ -210,8 +257,8 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         private enum State
         {
             TrippedLow,
-            Middle,
+            Neutral,
             TrippedHigh
-        }
+		}
     }
 }

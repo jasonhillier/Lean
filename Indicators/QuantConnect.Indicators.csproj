@@ -202,8 +202,6 @@
     <Compile Include="WindowIndicator.cs" />
     <Compile Include="StandardDeviation.cs" />
     <Compile Include="BollingerBands.cs" />
-    <Compile Include="VWAPStandardDeviation.cs" />
-    <Compile Include="PriceStandardDeviation.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\QuantConnect.csproj">

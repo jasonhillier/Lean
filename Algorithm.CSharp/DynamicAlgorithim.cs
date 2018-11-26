@@ -38,8 +38,11 @@ namespace QuantConnect.Algorithm.CSharp
         private decimal _takeProfit = 0;
 		private decimal _stopLoss = 0;
         private TimeSpan consolidatedResolution = new TimeSpan(0, 15, 0);
+		private Symbol _primarySymbol;
+		private Series _netHoldingsCount;
+		private Series _openOrdersCount;
 
-        public override void Initialize()
+		public override void Initialize()
         {
             UniverseSettings.Resolution = Resolution.Minute;
             UniverseSettings.FillForward = false;
@@ -62,7 +65,7 @@ namespace QuantConnect.Algorithm.CSharp
             SetEndDate(endDate);
             SetCash(100000);
 
-			var security = QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA);
+			_primarySymbol = QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Equity, Market.USA);
             var option = QuantConnect.Symbol.Create(GetParameter("symbol"), SecurityType.Option, Market.USA);
 
             SetUniverseSelection(new DynamicOptionUniverseSelectionModel((DateTime utcTime) =>
@@ -102,8 +105,16 @@ namespace QuantConnect.Algorithm.CSharp
 
             InsightsGenerated += (algorithm, data) => Log($"{Time}: INSIGHT>> {string.Join(" | ", data.Insights)}");
 
-            //this.SetBenchmark(security); //TODO: this breaks everything
-        }
+			//this.SetBenchmark(security); //TODO: this breaks everything
+
+			//setup chart to plot net position
+			var chart = new Chart("Net Position");
+			_netHoldingsCount = new Series("Holdings - " + this._primarySymbol.Value, SeriesType.StackedArea, '#');
+			_openOrdersCount = new Series("Open Orders - " + this._primarySymbol.Value, SeriesType.StackedArea, '#');
+			chart.AddSeries(_netHoldingsCount);
+			chart.AddSeries(_openOrdersCount);
+			this.AddChart(chart);
+		}
 
         public override void OnOrderEvent(OrderEvent orderEvent)
         {
@@ -149,7 +160,15 @@ namespace QuantConnect.Algorithm.CSharp
 					}
 				}
 			}
+
+			this.PlotNetPosition(slice);
         }
+
+		public void PlotNetPosition(Slice slice)
+		{
+			_netHoldingsCount.AddPoint(slice.Time.ToUniversalTime(), OptionTools.GetHoldingQuantity(this, _primarySymbol));
+			_openOrdersCount.AddPoint(slice.Time.ToUniversalTime(), OptionTools.GetOpenOrderQuantity(this, _primarySymbol));
+		}
 
         class DynamicOptionUniverseSelectionModel : OptionUniverseSelectionModel
         {

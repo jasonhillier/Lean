@@ -26,7 +26,60 @@ namespace QuantConnect.Algorithm.Framework
             return false;
         }
 
-        public static decimal GetNetHoldingQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol)
+		public static decimal GetHoldingQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol)
+		{
+			decimal pendingHoldingQuantity = 0;
+
+			string targetSymbol = optionOrUnderlyingSymbol.Value;
+			if (optionOrUnderlyingSymbol.HasUnderlying)
+				targetSymbol = optionOrUnderlyingSymbol.Underlying.Value;
+
+			foreach (var s in algorithm.Securities)
+			{
+				//only care about derivatives
+				if (!s.Key.HasUnderlying)
+					continue;
+
+				var symbol = s.Key.Underlying.Value;
+
+				if (symbol == targetSymbol)
+				{
+					pendingHoldingQuantity += s.Value.Holdings.Quantity;
+				}
+			}
+
+			return pendingHoldingQuantity;
+		}
+
+		public static decimal GetOpenOrderQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol)
+		{
+			decimal pendingHoldingQuantity = 0;
+
+			string targetSymbol = optionOrUnderlyingSymbol.Value;
+			if (optionOrUnderlyingSymbol.HasUnderlying)
+				targetSymbol = optionOrUnderlyingSymbol.Underlying.Value;
+
+			foreach (var o in algorithm.Transactions.GetOpenOrders())
+			{
+				//only care about derivatives
+				if (!o.Symbol.HasUnderlying)
+					continue;
+
+				var symbol = o.Symbol.Underlying.Value;
+
+				if (symbol == targetSymbol)
+				{
+					pendingHoldingQuantity += o.Quantity;
+				}
+			}
+
+			return pendingHoldingQuantity;
+		}
+
+		/// <summary>
+		/// Get total of quantity of holdings + pending orders
+		/// </summary>
+		public static decimal GetNetHoldingQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol)
         {
             decimal pendingHoldingQuantity = 0;
 
@@ -34,37 +87,12 @@ namespace QuantConnect.Algorithm.Framework
             if (optionOrUnderlyingSymbol.HasUnderlying)
                 targetSymbol = optionOrUnderlyingSymbol.Underlying.Value;
 
-            //1. Add up total quantities held and pending for all symbols of underlying
-            // (i.e. all the option contracts)
-            foreach (var s in algorithm.Securities)
-            {
-                //only care about derivatives
-                if (!s.Key.HasUnderlying)
-                    continue;
+			//1. Add up total quantities held and pending for all symbols of underlying
+			// (i.e. all the option contracts)
+			pendingHoldingQuantity = GetHoldingQuantity(algorithm, optionOrUnderlyingSymbol);
+			pendingHoldingQuantity += GetOpenOrderQuantity(algorithm, optionOrUnderlyingSymbol);
 
-                var symbol = s.Key.Underlying.Value;
-
-                if (symbol == targetSymbol)
-                {
-                    pendingHoldingQuantity += s.Value.Holdings.Quantity;
-                }
-            }
-
-            foreach (var o in algorithm.Transactions.GetOpenOrders())
-            {
-                //only care about derivatives
-                if (!o.Symbol.HasUnderlying)
-                    continue;
-
-                var symbol = o.Symbol.Underlying.Value;
-
-                if (symbol == targetSymbol)
-                {
-                    pendingHoldingQuantity += o.Quantity;
-                }
-            }
-
-            return pendingHoldingQuantity;
+			return pendingHoldingQuantity;
         }
     }
 }

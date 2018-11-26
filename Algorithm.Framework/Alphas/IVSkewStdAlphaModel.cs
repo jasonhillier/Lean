@@ -124,9 +124,10 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                             insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down, mag));
                             break;
                     }
-                }
 
-                kvp.Value.State = state;
+					kvp.Value.State = state;
+					kvp.Value.Mag = mag;
+				}
             }
 
             return insights;

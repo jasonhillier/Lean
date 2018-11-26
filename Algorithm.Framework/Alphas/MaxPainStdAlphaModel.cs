@@ -40,8 +40,6 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         private readonly double _lowThreshold;
         private readonly double _step;
         private readonly bool _inverted;
-        private Option _hackOptionSymbol;
-        private bool _timeTrigger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RsiAlphaModel"/> class
@@ -117,9 +115,10 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                             insights.Add(Insight.Price(symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down, mag));
                             break;
                     }
-                }
 
-                kvp.Value.State = state;
+					kvp.Value.State = state;
+					kvp.Value.Mag = mag;
+				}
             }
 
             return insights;

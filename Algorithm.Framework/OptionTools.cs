@@ -26,7 +26,7 @@ namespace QuantConnect.Algorithm.Framework
             return false;
         }
 
-		public static decimal GetHoldingQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol)
+		public static decimal GetHoldingQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol, bool pLong, bool pShort)
 		{
 			decimal pendingHoldingQuantity = 0;
 
@@ -37,21 +37,28 @@ namespace QuantConnect.Algorithm.Framework
 			foreach (var s in algorithm.Securities)
 			{
 				//only care about derivatives
-				if (!s.Key.HasUnderlying)
+				if (!s.Key.HasUnderlying || !s.Value.Invested)
 					continue;
 
 				var symbol = s.Key.Underlying.Value;
 
 				if (symbol == targetSymbol)
 				{
-					pendingHoldingQuantity += s.Value.Holdings.Quantity;
+					if (pLong && s.Value.Holdings.IsLong)
+					{
+						pendingHoldingQuantity += s.Value.Holdings.AbsoluteQuantity;
+					}
+					if (pShort && s.Value.Holdings.IsShort)
+					{
+						pendingHoldingQuantity += s.Value.Holdings.AbsoluteQuantity;
+					}
 				}
 			}
 
 			return pendingHoldingQuantity;
 		}
 
-		public static decimal GetOpenOrderQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol)
+		public static decimal GetOpenOrderQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol, bool pLong, bool pShort)
 		{
 			decimal pendingHoldingQuantity = 0;
 
@@ -69,7 +76,14 @@ namespace QuantConnect.Algorithm.Framework
 
 				if (symbol == targetSymbol)
 				{
-					pendingHoldingQuantity += o.Quantity;
+					if (o.Quantity > 0 && pLong)
+					{
+						pendingHoldingQuantity += o.AbsoluteQuantity;
+					}
+					if (o.Quantity < 0 && pShort)
+					{
+						pendingHoldingQuantity += o.AbsoluteQuantity;
+					}
 				}
 			}
 
@@ -89,8 +103,10 @@ namespace QuantConnect.Algorithm.Framework
 
 			//1. Add up total quantities held and pending for all symbols of underlying
 			// (i.e. all the option contracts)
-			pendingHoldingQuantity = GetHoldingQuantity(algorithm, optionOrUnderlyingSymbol);
-			pendingHoldingQuantity += GetOpenOrderQuantity(algorithm, optionOrUnderlyingSymbol);
+			pendingHoldingQuantity = GetHoldingQuantity(algorithm, optionOrUnderlyingSymbol, true, false);
+			pendingHoldingQuantity -= GetHoldingQuantity(algorithm, optionOrUnderlyingSymbol, false, true);
+			pendingHoldingQuantity += GetOpenOrderQuantity(algorithm, optionOrUnderlyingSymbol, true, false);
+			pendingHoldingQuantity -= GetOpenOrderQuantity(algorithm, optionOrUnderlyingSymbol, false, true);
 
 			return pendingHoldingQuantity;
         }

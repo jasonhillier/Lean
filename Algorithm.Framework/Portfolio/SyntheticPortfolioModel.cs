@@ -29,15 +29,13 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     /// </summary>
     public class SyntheticPortfolioModel : BaseOptionPortfolioModel
     {
-        /// <summary>
-        /// When a new insight comes in, close down anything that might be open.
-        /// </summary>
-        public override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+		/// <summary>
+		/// When a new insight comes in, close down anything that might be open.
+		/// </summary>
+		public override List<IPortfolioTarget> PossiblyCloseCurrentTargets(QCAlgorithmFramework algorithm, Symbol symbol, IEnumerable<OptionHolding> holdings, Insight insight)
         {
-            var optionHoldings = GetOptionHoldings(algorithm, symbol);
-
             List<IPortfolioTarget> closingTargets = new List<IPortfolioTarget>();
-            optionHoldings.All(p =>
+			holdings.All(p =>
             {
                 if (insight.Direction != InsightDirection.Down)
                 {
@@ -61,7 +59,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             return closingTargets;
         }
 
-        public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+        public sealed override List<IPortfolioTarget> FindPotentialOptions(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
             if (insight.Direction == InsightDirection.Flat)
                 return null;

@@ -66,23 +66,31 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                                                         x.Value.Invested);
         }
 
-        /// <summary>
-        /// When a new insight comes in, close down anything that might be open.
-        /// </summary>
-        public override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
-        {
+		/// <summary>
+		/// When a new insight comes in, close down anything that might be open.
+		/// </summary>
+		public override List<IPortfolioTarget> PossiblyCloseCurrentTargets(QCAlgorithmFramework algorithm, Symbol symbol, IEnumerable<OptionHolding> holdings, Insight insight)
+		{
             //hold til expiration
             return null;
         }
 
-        public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+		protected virtual List<IPortfolioTarget> LiquidateOptions(QCAlgorithmFramework algorithm, IEnumerable<OptionHolding> holdings)
+		{
+			//hold til expiration
+			return null;
+		}
+
+		protected virtual List<IPortfolioTarget> IncrementOptionPositions(QCAlgorithmFramework algorithm, Symbol baseSymbol, IEnumerable<OptionHolding> holdings)
+		{
+			//hold til expiration
+			return null;
+		}
+
+
+		public override List<IPortfolioTarget> FindPotentialOptions(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
             this._Algo = algorithm;
-
-            if (insight.Direction == InsightDirection.Flat)
-                return null;
-            if (this.IsInvested(symbol)) //TODO: probably have execution manager take care of this
-                return null;
 
             var inOptions = _SelectInsideOptions(symbol, insight.Direction == InsightDirection.Down);
             if (inOptions == null) return null;

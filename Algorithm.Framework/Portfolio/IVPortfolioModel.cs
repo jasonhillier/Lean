@@ -29,48 +29,41 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     /// </summary>
     public class IVPortfolioModel : BaseOptionPortfolioModel
     {
-        /// <summary>
-        /// When a new insight comes in, close down anything that might be open.
-        /// </summary>
-		/*
-        public override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+		/// <summary>
+		/// When a new insight comes in, close down anything that might be open.
+		/// </summary>
+        public override List<IPortfolioTarget> PossiblyCloseCurrentTargets(QCAlgorithmFramework algorithm, Symbol symbol, IEnumerable<OptionHolding> optionHoldings, Insight insight)
         {
-            var optionHoldings = GetOptionHoldings(algorithm, symbol);
+			bool shouldBeLong = insight.Direction == InsightDirection.Up;
+			bool liquidate = false;
 
-            List<IPortfolioTarget> closingTargets = new List<IPortfolioTarget>();
-            optionHoldings.All(p =>
+			optionHoldings.All(p =>
             {
-                if (insight.Direction != InsightDirection.Down)
-                {
-                    //if NOT going down, close any synthetic shorts
-                    if (p.Symbol.ID.OptionRight == OptionRight.Put && p.IsLong)
-                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
-                    if (p.Symbol.ID.OptionRight == OptionRight.Call && p.IsShort)
-                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
-                }
-                else if (insight.Direction != InsightDirection.Up)
-                {
-                    //if NOT going up, close any synthetic longs
-                    if (p.Symbol.ID.OptionRight == OptionRight.Put && p.IsShort)
-                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
-                    if (p.Symbol.ID.OptionRight == OptionRight.Call && p.IsLong)
-                        closingTargets.Add(new PortfolioTarget(p.Symbol, 0)); //0=close out whatever outstanding quantity
-                }
-                return true;
-            });
+                if (shouldBeLong && p.Quantity < 0)
+				{
+					liquidate = true;
+				}
+				else if (!shouldBeLong && p.Quantity > 0)
+				{
+					liquidate = true;
+				}
 
-            return closingTargets;
+				return true;
+			});
+
+			if (liquidate)
+			{
+				return this.LiquidateOptions(algorithm, optionHoldings);
+			}
+
+			return null;
         }
-		*/
 
-        public override List<IPortfolioTarget> OpenTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
+		public override List<IPortfolioTarget> FindPotentialOptions(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
-            if (insight.Direction == InsightDirection.Flat)
-                return null;
+            //int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
 
-            int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
-
-            return FindATMTargets(algorithm, symbol, insight.Direction == InsightDirection.Up, mag);
+            return FindATMTargets(algorithm, symbol, insight.Direction == InsightDirection.Up);
         }
 
         public virtual List<IPortfolioTarget> FindATMTargets(QCAlgorithmFramework algorithm, Symbol symbol, bool isLong, int mag = 1, int expiryDistance = 0)

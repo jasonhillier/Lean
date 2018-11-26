@@ -48,9 +48,10 @@ namespace QuantConnect.Algorithm.Framework.Execution
                 if (!target.Symbol.HasUnderlying)
                     continue;
 
-                var pendingInUnderlying = OptionTools.GetNetHoldingQuantity(algorithm, target.Symbol);
+				var existing = algorithm.Securities[target.Symbol].Holdings.Quantity
+					+ algorithm.Transactions.GetOpenOrders(target.Symbol).Sum(o => o.Quantity);
 
-                decimal quantity = target.Quantity - pendingInUnderlying;
+				decimal quantity = target.Quantity - existing;
 
                 if (quantity != 0)
                 {

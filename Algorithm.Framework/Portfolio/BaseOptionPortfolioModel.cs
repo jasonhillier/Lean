@@ -62,7 +62,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 						return closingTargets;
 					
 					//if we aren't closing anything, then add to open position
-					return this.IncrementOptionPositions(algorithm, baseSymbol, currentHoldings);
+					return this.IncrementOptionPositions(algorithm, baseSymbol, currentHoldings, insight);
 				}
 			}
 			else
@@ -80,13 +80,13 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
 			foreach(var h in holdings)
 			{
-				targets.Add(new PortfolioTarget(h.Symbol, -h.Quantity));
+				targets.Add(new PortfolioTarget(h.Symbol, 0));
 			}
 
 			return targets;
 		}
 
-		protected virtual List<IPortfolioTarget> IncrementOptionPositions(QCAlgorithmFramework algorithm, Symbol baseSymbol, IEnumerable<OptionHolding> holdings)
+		protected virtual List<IPortfolioTarget> IncrementOptionPositions(QCAlgorithmFramework algorithm, Symbol baseSymbol, IEnumerable<OptionHolding> holdings, Insight insight)
 		{
 			//don't touch anything if there are orders still pending
 			if (OptionTools.GetOpenOrderQuantity(algorithm, baseSymbol, true, true) > 0)

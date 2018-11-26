@@ -97,6 +97,7 @@
     <Compile Include="Portfolio\IPortfolioConstructionModel.cs" />
     <Compile Include="Portfolio\IPortfolioOptimizer.cs" />
     <Compile Include="Portfolio\IVPortfolioModel.cs" />
+    <Compile Include="Portfolio\PUTLadderPortfolioModel.cs" />
     <Compile Include="Portfolio\UnconstrainedMeanVariancePortfolioOptimizer.cs" />
     <Compile Include="Portfolio\MaximumSharpeRatioPortfolioOptimizer.cs" />
     <Compile Include="Portfolio\MeanVarianceOptimizationPortfolioConstructionModel.cs" />

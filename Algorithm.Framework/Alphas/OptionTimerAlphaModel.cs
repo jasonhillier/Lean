@@ -43,15 +43,14 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 		/// <param name="resolution">The resolution of data sent into the RSI indicator</param>
 		public OptionTimerAlphaModel(
             int daysOpenBegin = 35,
-			int daysOpenEnd = 30,
 			int daysCloseBegin = 15,
-			int daysCloseEnd = 10
+			int windowSize = 3
 			)
         {
 			_daysOpenBegin = daysOpenBegin;
-			_daysOpenEnd = daysOpenEnd;
+			_daysOpenEnd = daysOpenBegin - windowSize;
 			_daysCloseBegin = daysCloseBegin;
-			_daysCloseEnd = daysCloseEnd;
+			_daysCloseEnd = daysOpenBegin - windowSize;
 
 			Name = $"{nameof(OptionTimerAlphaModel)}({_daysOpenBegin},{_daysCloseBegin})";
         }

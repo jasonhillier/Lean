@@ -191,7 +191,7 @@ namespace QuantConnect.Algorithm.CSharp
             protected override OptionFilterUniverse Filter(OptionFilterUniverse filter)
             {
                 return filter
-                    .Strikes(-7, +7)
+                    .Strikes(-20, +20)
                     .Expiration(TimeSpan.Zero, TimeSpan.FromDays(45));
                     //.WeeklysOnly()
                     //.PutsOnly()

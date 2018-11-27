@@ -75,7 +75,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
             if (!isLong)
             {
-                var synthetic = this.GetSyntheticShort(algorithm, symbol, expiryDistance);
+                var synthetic = this.GetATM(algorithm, symbol, expiryDistance);
                 if (synthetic == null)
                     return targets; //abort/not-found
 
@@ -85,7 +85,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             }
             else
             {
-                var synthetic = this.GetSyntheticLong(algorithm, symbol, expiryDistance);
+                var synthetic = this.GetATM(algorithm, symbol, expiryDistance);
                 if (synthetic == null)
                     return targets; //abort/not-found
 

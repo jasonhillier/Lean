@@ -192,7 +192,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 return filter
                     .Strikes(-20, +20)
-                    .Expiration(TimeSpan.Zero, TimeSpan.FromDays(45));
+                    .Expiration(TimeSpan.Zero, TimeSpan.FromDays(60));
                     //.WeeklysOnly()
                     //.PutsOnly()
                     //.OnlyApplyFilterAtMarketOpen();

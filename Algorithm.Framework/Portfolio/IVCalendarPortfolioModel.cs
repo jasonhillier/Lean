@@ -29,35 +29,51 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     /// </summary>
     public class IVCalendarPortfolioModel : SyntheticPortfolioModel
     {
-        public override List<IPortfolioTarget> FindSyntheticTargets(QCAlgorithmFramework algorithm, Symbol symbol, bool isLong, int mag = 1, int expiryDistance = 0)
+		public override List<IPortfolioTarget> PossiblyCloseCurrentTargets(QCAlgorithmFramework algorithm, Symbol symbol, IEnumerable<OptionHolding> holdings, Insight insight)
+		{
+			if (insight.Direction == InsightDirection.Down)
+			{
+				return this.LiquidateOptions(algorithm, holdings);
+			}
+
+			return null;
+		}
+
+		public override List<IPortfolioTarget> FindSyntheticTargets(QCAlgorithmFramework algorithm, Symbol symbol, bool isLong, int mag = 1, int expiryDistance = 0)
         {
             var targets = new List<IPortfolioTarget>();
 
-            int neg = (isLong) ? 1 : -1;
+			if (!isLong) return targets;
 
             //short BOTH front-month
-            var synthetic = this.GetSyntheticShort(algorithm, symbol, expiryDistance);
+            var synthetic = this.GetATM(algorithm, symbol, expiryDistance);
 			if (synthetic == null)
 			{
 				algorithm.Log("No front-month options found!");
 				return new List<IPortfolioTarget>(); //abort/not-found
 			}
 
-            targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, neg*this.PositionSize * mag));
-            targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, neg*this.PositionSize * mag));
+            targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, -this.PositionSize * mag));
+            targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, -this.PositionSize * mag));
 
             //long BOTH back month
-            synthetic = this.GetSyntheticLong(algorithm, symbol, expiryDistance+1);
+            synthetic = this.GetATM(algorithm, symbol, expiryDistance+1);
             if (synthetic == null)
 			{
 				algorithm.Log("No back-month options found!");
 				return new List<IPortfolioTarget>(); //abort/not-found
 			}
 
-            targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, -1*neg*this.PositionSize * mag));
-            targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, -1*neg*this.PositionSize * mag));
+            targets.Add(new PortfolioTarget(synthetic.Item1.Symbol, this.PositionSize * mag));
+            targets.Add(new PortfolioTarget(synthetic.Item2.Symbol, this.PositionSize * mag));
 
             return targets;
         }
-    }
+
+		protected override List<IPortfolioTarget> IncrementOptionPositions(QCAlgorithmFramework algorithm, Symbol baseSymbol, IEnumerable<OptionHolding> holdings, Insight insight)
+		{
+			return null;
+		}
+
+	}
 }

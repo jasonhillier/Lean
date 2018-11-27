@@ -131,7 +131,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
         /// </summary>
         protected IOrderedEnumerable<OptionContract> GetITM(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, OptionRight right, int expiryDistance = 0)
         {
-            IOrderedEnumerable<OptionContract> selected = this.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
+            IOrderedEnumerable<OptionContract> selected = OptionTools.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
             if (selected == null)
                 return null;
 
@@ -144,11 +144,36 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
         }
 
 		/// <summary>
+		/// Get GetATM options for nearest available expiration.
+		/// </summary>
+		protected Tuple<OptionContract, OptionContract> GetATM(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, int expiryDistance = 0)
+		{
+			IOrderedEnumerable<OptionContract> selected = OptionTools.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
+			if (selected == null)
+				return null;
+
+			var put = selected
+				.Where(o => o.Right == OptionRight.Put &&
+					o.Strike - 0.5m < o.UnderlyingLastPrice)
+				//sort by distance from atm
+				.OrderBy(o => Math.Abs(o.UnderlyingLastPrice - o.Strike)).FirstOrDefault();
+			if (put == null) return null;
+
+
+			var call = selected
+				.Where(o => o.Right == OptionRight.Call &&
+					o.Strike == put.Strike).FirstOrDefault();
+			if (call == null) return null;
+
+			return new Tuple<OptionContract, OptionContract>(call, put);
+		}
+
+		/// <summary>
 		/// Get OTM options for nearest available expiration.
 		/// </summary>
 		protected IOrderedEnumerable<OptionContract> GetOTM(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, OptionRight right, int expiryDistance = 0)
         {
-            IOrderedEnumerable<OptionContract> selected = this.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
+            IOrderedEnumerable<OptionContract> selected = OptionTools.GetOptionsForExpiry(algorithim, underlyingSymbol, expiryDistance);
             if (selected == null)
                 return null;
 
@@ -158,72 +183,6 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                 .Where(o => (right == OptionRight.Put ? o.Strike < o.UnderlyingLastPrice : o.Strike > o.UnderlyingLastPrice))
                 //sort by distance from atm
                 .OrderBy(o => Math.Abs(o.UnderlyingLastPrice - o.Strike));
-        }
-
-		/// <summary>
-		/// Get all available options for target expiration.
-		/// </summary>
-		protected IOrderedEnumerable<OptionContract> GetOptionsForExpiry(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, int expiryDistance)
-        {
-            OptionChain chain;
-            if (!this.TryGetOptionChain(algorithim, underlyingSymbol, out chain))
-            {
-                return null;
-            }
-
-            List<DateTime> expirations = new List<DateTime>();
-
-            var options = chain.All((o) =>
-            {
-                if (!expirations.Contains(o.Expiry))
-                expirations.Add(o.Expiry);
-                return true;
-            });
-
-            expirations.OrderBy((i) => i);
-
-            if (expirations.Count <= expiryDistance)
-                return null;
-
-            var targetExpiry = expirations[expiryDistance];
-
-            //select only expiry
-            return chain.Where(x => (x.Expiry == targetExpiry))
-                        .OrderBy(x => x.Expiry);
-        }
-
-		/// <summary>
-		/// Get long put and short call
-		/// </summary>
-		protected Tuple<OptionContract, OptionContract> GetSyntheticShort(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, int expiryDistance = 0)
-        {
-            var puts = this.GetITM(algorithm, underlyingSymbol, OptionRight.Put, expiryDistance);
-            var calls = this.GetOTM(algorithm, underlyingSymbol, OptionRight.Call, expiryDistance);
-
-            if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
-            {
-                algorithm.Log("Option alignment error!");
-                return null;
-            }
-
-            return new Tuple<OptionContract, OptionContract>(puts.First(), calls.First());
-        }
-
-		/// <summary>
-		/// Get long call and short put
-		/// </summary>
-		protected Tuple<OptionContract, OptionContract> GetSyntheticLong(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, int expiryDistance = 0)
-        {
-            var calls = this.GetITM(algorithm, underlyingSymbol, OptionRight.Call, expiryDistance);
-            var puts = this.GetOTM(algorithm, underlyingSymbol, OptionRight.Put, expiryDistance);
-
-            if (puts == null || calls == null || puts.Count() < 1 || calls.Count() < 1 || puts.First().Strike != calls.First().Strike)
-            {
-                algorithm.Log("Option alignment error!");
-                return null;
-            }
-
-            return new Tuple<OptionContract, OptionContract>(calls.First(), puts.First());
         }
     }
 }

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using QuantConnect.Data.Market;
 
 namespace QuantConnect.Algorithm.Framework
@@ -25,6 +27,38 @@ namespace QuantConnect.Algorithm.Framework
 
             return false;
         }
+
+		/// <summary>
+		/// Get all available options for target expiration.
+		/// </summary>
+		public static IOrderedEnumerable<OptionContract> GetOptionsForExpiry(QCAlgorithmFramework algorithim, Symbol underlyingSymbol, int expiryDistance)
+		{
+			OptionChain chain;
+			if (!TryGetOptionChain(algorithim, underlyingSymbol, out chain))
+			{
+				return null;
+			}
+
+			List<DateTime> expirations = new List<DateTime>();
+
+			var options = chain.All((o) =>
+			{
+				if (!expirations.Contains(o.Expiry))
+					expirations.Add(o.Expiry);
+				return true;
+			});
+
+			expirations.OrderBy((i) => i);
+
+			if (expirations.Count <= expiryDistance)
+				return null;
+
+			var targetExpiry = expirations[expiryDistance];
+
+			//select only expiry
+			return chain.Where(x => (x.Expiry == targetExpiry))
+						.OrderBy(x => x.Expiry);
+		}
 
 		public static decimal GetHoldingQuantity(QCAlgorithmFramework algorithm, Symbol optionOrUnderlyingSymbol, bool pLong, bool pShort)
 		{

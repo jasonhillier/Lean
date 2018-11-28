@@ -184,5 +184,25 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
                 //sort by distance from atm
                 .OrderBy(o => Math.Abs(o.UnderlyingLastPrice - o.Strike));
         }
-    }
+
+		public virtual Tuple<OptionContract, OptionContract> GetOTMSpread(QCAlgorithmFramework algorithm, Symbol symbol, int spread = 0, int expiryDistance = 0)
+		{
+			var targets = new List<IPortfolioTarget>();
+
+			var calls = this.GetOTM(algorithm, symbol, OptionRight.Call, expiryDistance);
+			var puts = this.GetOTM(algorithm, symbol, OptionRight.Put, expiryDistance);
+
+			if (calls.Count() > spread && puts.Count() > spread)
+			{
+				var call = calls.Skip(spread).FirstOrDefault();
+				var put = puts.Skip(spread).FirstOrDefault();
+
+				if (call == null || put == null) return null;
+
+				return new Tuple<OptionContract, OptionContract>(call, put);
+			}
+
+			return null;
+		}
+	}
 }

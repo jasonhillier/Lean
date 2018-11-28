@@ -26,9 +26,12 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 {
     /// <summary>
     /// Goes long or short volatility (i.e. ATM options)
+	///  - can be used to create straddle, strangle
     /// </summary>
     public class IVPortfolioModel : BaseOptionPortfolioModel
     {
+		public int spread { get; set; }
+
 		/// <summary>
 		/// When a new insight comes in, close down anything that might be open.
 		/// </summary>
@@ -61,29 +64,32 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
 		public override List<IPortfolioTarget> FindPotentialOptions(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
         {
-            //int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
+			var targets = new List<IPortfolioTarget>();
 
-            return FindATMTargets(algorithm, symbol, insight.Direction == InsightDirection.Up);
-        }
+			if (insight.Direction == InsightDirection.Flat) return targets;
 
-        public virtual List<IPortfolioTarget> FindATMTargets(QCAlgorithmFramework algorithm, Symbol symbol, bool isLong, int mag = 1, int expiryDistance = 0)
-        {
-            var targets = new List<IPortfolioTarget>();
+            int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
+			mag = insight.Direction == InsightDirection.Up ? mag : -mag;
 
-			var calls = this.GetOTM(algorithm, symbol, OptionRight.Call, 0);
-			var puts = this.GetOTM(algorithm, symbol, OptionRight.Put, 0);
+			Tuple<OptionContract, OptionContract> contracts = null;
 
-			if (calls.Count() > 0 && puts.Count() > 0)
+			if (this.spread == 0)
 			{
-				int quantity = this.PositionSize * mag;
-				if (!isLong)
-					quantity = -quantity;
-
-				targets.Add(new PortfolioTarget(calls.First().Symbol, quantity));
-				targets.Add(new PortfolioTarget(puts.First().Symbol, quantity));
+				contracts = this.GetATM(algorithm, symbol, 0);
+			}
+			else
+			{
+				contracts = this.GetOTMSpread(algorithm, symbol, this.spread);
 			}
 
-            return targets;
-        }
+			if (contracts != null)
+			{
+				targets.Add(new PortfolioTarget(contracts.Item1.Symbol, this.PositionSize * mag));
+				targets.Add(new PortfolioTarget(contracts.Item2.Symbol, this.PositionSize * mag));
+			}
+
+			return targets;
+
+		}
     }
 }

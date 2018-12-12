@@ -74,6 +74,7 @@
     <Compile Include="Alphas\AlphaModel.cs" />
     <Compile Include="Alphas\AlphaModelExtensions.cs" />
     <Compile Include="Alphas\AlphaModelPythonWrapper.cs" />
+    <Compile Include="Alphas\FixedPriceAlphaModel.cs" />
     <Compile Include="Alphas\OptionTimerAlphaModel.cs" />
     <Compile Include="Alphas\MaxPainStdAlphaModel.cs" />
     <Compile Include="Alphas\OptionAlphaModel.cs" />
@@ -99,6 +100,7 @@
     <Compile Include="Portfolio\IPortfolioOptimizer.cs" />
     <Compile Include="Portfolio\IVPortfolioModel.cs" />
     <Compile Include="Portfolio\PUTLadderPortfolioModel.cs" />
+    <Compile Include="Portfolio\NullOptionPortfolioModel.cs" />
     <Compile Include="Portfolio\UnconstrainedMeanVariancePortfolioOptimizer.cs" />
     <Compile Include="Portfolio\MaximumSharpeRatioPortfolioOptimizer.cs" />
     <Compile Include="Portfolio\MeanVarianceOptimizationPortfolioConstructionModel.cs" />

@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Newtonsoft.Json;
 using QuantConnect.Algorithm.Framework;
 using QuantConnect.Algorithm.Framework.Alphas;
 using QuantConnect.Algorithm.Framework.Execution;
@@ -250,6 +251,14 @@ namespace QuantConnect.Algorithm.CSharp
 			if (parameterCastType.IsEnum)
 			{
 				return (object)Enum.Parse(parameterCastType, value);
+			}
+			if (parameterCastType == typeof(double[]))
+			{
+				return JsonConvert.DeserializeObject<double[]>(value);
+			}
+			if (parameterCastType == typeof(int[]))
+			{
+				return JsonConvert.DeserializeObject<int[]>(value);
 			}
 
 			throw new Exception("cast type not supported!");

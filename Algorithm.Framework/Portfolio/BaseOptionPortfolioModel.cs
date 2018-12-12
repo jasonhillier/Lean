@@ -33,6 +33,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
     public abstract class BaseOptionPortfolioModel : BasePortfolioModel
     {
         public int PositionSize = 1; //TODO make smarter
+		public bool PrintPosition = false;
         protected Func<OptionFilterUniverse,OptionFilterUniverse> _OptionFilter;
 
 		public sealed override List<IPortfolioTarget> CloseTargetsFromInsight(QCAlgorithmFramework algorithm, Symbol symbol, Insight insight)
@@ -45,6 +46,15 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 		{
 			var currentHoldings = GetOptionHoldings(algorithm, baseSymbol);
 			var pendingOrderCount = OptionTools.GetOpenOrderQuantity(algorithm, baseSymbol, true, true);
+
+			if (this.PrintPosition)
+			{
+				algorithm.Log("pending orders: " + pendingOrderCount);
+				foreach(var holding in currentHoldings)
+				{
+					algorithm.Log("holding: " + holding.Symbol + "\t" + holding.Quantity + "\t" + holding.UnrealizedProfit);
+				}
+			}
 
 			if (currentHoldings.Count() > 0 ||
 				pendingOrderCount > 0)

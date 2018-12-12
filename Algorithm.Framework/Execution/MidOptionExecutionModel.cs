@@ -58,8 +58,13 @@ namespace QuantConnect.Algorithm.Framework.Execution
                     if (target.Quantity == 0)
                     {
                         //CLOSING a position, we want to do so immediately
+						//TODO: maybe skew it?
                         algorithm.MarketOrder(target.Symbol, quantity);
                     }
+					else if (MinutesTilClose(algorithm) <= 30)
+					{
+						algorithm.MarketOrder(target.Symbol, target.Quantity);
+					}
                     else
                     {
                         //Adding or entering new position
@@ -89,5 +94,14 @@ namespace QuantConnect.Algorithm.Framework.Execution
         public override void OnSecuritiesChanged(QCAlgorithmFramework algorithm, SecurityChanges changes)
         {
         }
-    }
+
+		public int MinutesTilClose(QCAlgorithmFramework algorithim)
+		{
+			var exchangeHours = Securities.MarketHoursDatabase
+				.FromDataFolder()
+				.GetExchangeHours(Market.USA, "SPY", SecurityType.Option); //TODO: whatever fix this later
+
+			return (int)(exchangeHours.GetNextMarketClose(algorithim.CurrentSlice.Time, false) - algorithim.CurrentSlice.Time).TotalMinutes;
+		}
+	}
 }

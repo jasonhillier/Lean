@@ -133,7 +133,7 @@ namespace QuantConnect.Brokerages.TradeStation
 				case SecurityType.Option:
                     criteria = "R=" + contractName;
 					criteria += "&C=StockOption";
-                    criteria += "&Exd=2";
+                    criteria += "&Exd=6";
 					criteria += "&Stk=30"; //grab many strikes
 					break;
 				case SecurityType.Future:
@@ -223,7 +223,7 @@ namespace QuantConnect.Brokerages.TradeStation
             _refreshDelay.Elapsed += (sender, args) =>
             {
                 _refresh = true;
-                Log.Trace("TradeStationBrokerage.DataQueueHandler.Refresh(): Updating tickers..." + string.Join(",", _subscriptions.Select(x => x.Value)));
+                Log.Trace("TradeStationBrokerage.DataQueueHandler.Refresh(): Updating tickers (" + _subscriptions.Count + ")..." + string.Join(",", _subscriptions.Select(x => x.Value)));
                 CloseStream();
                 _refreshDelay.Stop();
             };

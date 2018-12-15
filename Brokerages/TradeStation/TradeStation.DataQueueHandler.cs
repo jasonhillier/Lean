@@ -111,7 +111,10 @@ namespace QuantConnect.Brokerages.TradeStation
 
 		public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, string securityCurrency = null, string securityExchange = null)
 		{
-			var baseSymbol = Symbol.Create(lookupName, securityType, "USA");
+			//convert from LEAN to TradeStation
+			string assumeBaseSymbol = lookupName.Split(' ')[0];
+
+			var baseSymbol = Symbol.Create(assumeBaseSymbol, securityType, "USA");
 			return LookupSymbols(baseSymbol);
 		}
 
@@ -130,7 +133,7 @@ namespace QuantConnect.Brokerages.TradeStation
 				case SecurityType.Option:
                     criteria = "R=" + contractName;
 					criteria += "&C=StockOption";
-                    criteria += "&Exd=10";
+                    criteria += "&Exd=2";
 					criteria += "&Stk=30"; //grab many strikes
 					break;
 				case SecurityType.Future:

@@ -45,7 +45,6 @@ namespace QuantConnect.Brokerages.TradeStation
         private volatile bool _refresh = true;
         private Timer _refreshDelay = new Timer();
         private readonly ConcurrentDictionary<Symbol, string> _subscriptions = new ConcurrentDictionary<Symbol, string>();
-		private Dictionary<Symbol, string> _optionNameResolver = new Dictionary<Symbol, string>();
         private Stream _tradestationStream;
 
         /// <summary>
@@ -111,17 +110,15 @@ namespace QuantConnect.Brokerages.TradeStation
 
 		public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, string securityCurrency = null, string securityExchange = null)
 		{
-			//convert from LEAN to TradeStation
-			string assumeBaseSymbol = lookupName.Split(' ')[0];
-
-			var baseSymbol = Symbol.Create(assumeBaseSymbol, securityType, "USA");
-			return LookupSymbols(baseSymbol);
+			string baseSymbolName = _symbolMapper.GetUnderlyingFromSymbolName(lookupName);
+			var symbol = Symbol.Create(baseSymbolName, securityType, Market.USA);
+			return LookupSymbols(symbol);
 		}
 
 		public IEnumerable<Symbol> LookupSymbols(Symbol lookupSymbol)
         {
-            string contractName = lookupSymbol.ID.Symbol;
-            Symbol baseEquitySymbol = Symbol.Create(contractName, SecurityType.Equity, Market.USA);
+			string contractName = lookupSymbol.ID.Symbol;
+			Symbol baseEquitySymbol = Symbol.Create(contractName, SecurityType.Equity, Market.USA);
 
 			string criteria = "";
 			switch(lookupSymbol.SecurityType)
@@ -157,7 +154,7 @@ namespace QuantConnect.Brokerages.TradeStation
 						(decimal)result.StrikePrice,
 						(DateTime)result.ExpirationDate);
 
-                    _optionNameResolver[symbol] = result.Name;
+					_symbolMapper.OptionNameResolver[symbol] = result.Name;
 				}
 				else
 				{
@@ -247,7 +244,7 @@ namespace QuantConnect.Brokerages.TradeStation
 			//TODO: fix this hackiness
             if (derivativeType == SecurityType.Option)
             {
-                symbol = _optionNameResolver.FirstOrDefault(x => x.Value == tsd.Symbol).Key;
+                symbol = _symbolMapper.OptionNameResolver.FirstOrDefault(x => x.Value == tsd.Symbol).Key;
 				if (symbol == null)
 				{
 					symbol = _subscriptions.FirstOrDefault(x => x.Key.Value.StartsWith("?") && x.Key.ID.Symbol == tsd.Symbol && x.Key.SecurityType == SecurityType.Option).Key;
@@ -368,8 +365,8 @@ namespace QuantConnect.Brokerages.TradeStation
                 }
                 else if (sub.Key.SecurityType == SecurityType.Option)
                 {
-                    if (_optionNameResolver.ContainsKey(sub.Key))
-                        symbols.Add(_optionNameResolver[sub.Key]);
+                    if (_symbolMapper.OptionNameResolver.ContainsKey(sub.Key))
+                        symbols.Add(_symbolMapper.OptionNameResolver[sub.Key]);
                     else
                         Log.Error("No option symbol was resolved for " + sub.Key.Value);
                 }

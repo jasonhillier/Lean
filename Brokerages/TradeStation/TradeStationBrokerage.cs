@@ -50,9 +50,10 @@ namespace QuantConnect.Brokerages.TradeStation
         private readonly string _accessToken;
         private TradeStationClient _tradeStationClient;
         private bool _isConnected;
+		private TradeStationSymbolMapper _symbolMapper;
 
-        // we're reusing the equity exchange here to grab typical exchange hours
-        private static readonly EquityExchange Exchange =
+		// we're reusing the equity exchange here to grab typical exchange hours
+		private static readonly EquityExchange Exchange =
             new EquityExchange(MarketHoursDatabase.FromDataFolder().GetExchangeHours(Market.USA, null, SecurityType.Equity));
 
         // polling timers for refreshing access tokens and checking for fill events
@@ -98,8 +99,9 @@ namespace QuantConnect.Brokerages.TradeStation
             _accountID = accountID;
             _accountKeys = new List<string>() { accountID };
             _accessToken = accessToken;
+			_symbolMapper = new TradeStationSymbolMapper(this);
 
-            _tradeStationClient = new TradeStationClient();
+			_tradeStationClient = new TradeStationClient();
             if (simulation)
                 _tradeStationClient.BaseUrl = "https://sim-api.tradestation.com/v2";
 
@@ -187,7 +189,7 @@ namespace QuantConnect.Brokerages.TradeStation
 
         public Anonymous3 GetQuote(Symbol pLeanSymbol)
         {
-            string brokerSymbol = this.ConvertToTradestationSymbol(pLeanSymbol);
+            string brokerSymbol = _symbolMapper.GetBrokerageSymbol(pLeanSymbol);
             return this.GetQuote(brokerSymbol);
         }
 
@@ -233,7 +235,7 @@ namespace QuantConnect.Brokerages.TradeStation
             }
 
             var tsOrder = new OrderRequestDefinition();
-            tsOrder.Symbol = ConvertToTradestationSymbol(order.Symbol);
+            tsOrder.Symbol = _symbolMapper.GetBrokerageSymbol(order.Symbol);
             if (order.Symbol.SecurityType == SecurityType.Option)
                 tsOrder.AssetType = OrderRequestDefinitionAssetType.OP;
             else
@@ -812,7 +814,7 @@ namespace QuantConnect.Brokerages.TradeStation
                     throw new NotImplementedException("The Tradier order type " + order.Type + " is not implemented.");
             }
             */
-            qcOrder.Symbol = ConvertSymbol(order.Symbol, order.AssetType);// Symbol.Create(order.Symbol, SecurityType.Equity, Market.USA);
+            qcOrder.Symbol = _symbolMapper.GetLeanSymbol(order.Symbol, order.AssetType);// Symbol.Create(order.Symbol, SecurityType.Equity, Market.USA);
             qcOrder.Quantity = ConvertQuantity(order);
             qcOrder.Status = ConvertStatus(order.Status);
             qcOrder.Id = Int32.Parse(order.OrderID.ToString());
@@ -878,85 +880,34 @@ namespace QuantConnect.Brokerages.TradeStation
             }
         }
 
-        /// <summary>
-        /// Converts the tradier order quantity into a qc quantity
-        /// </summary>
-        /// <remarks>
-        /// Tradier quantities are always positive and use the direction to denote +/-, where as qc
-        /// order quantities determine the direction
-        /// </remarks>
-        protected int ConvertQuantity(Anonymous8 order)
-        {
-            switch (order.Type)
-            {
-                case Type2.Buy:
-                    return (int)order.Quantity;
+		/// <summary>
+		/// Converts the tradier order quantity into a qc quantity
+		/// </summary>
+		/// <remarks>
+		/// Tradier quantities are always positive and use the direction to denote +/-, where as qc
+		/// order quantities determine the direction
+		/// </remarks>
+		protected int ConvertQuantity(Anonymous8 order)
+		{
+			switch (order.Type)
+			{
+				case Type2.Buy:
+					return (int)order.Quantity;
 
-                case Type2.Sell:
-                    return -(int)order.Quantity;
+				case Type2.Sell:
+					return -(int)order.Quantity;
 
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
-        protected string ConvertToTradestationSymbol(Symbol pSymbol)
-        {
-            if (pSymbol.SecurityType == SecurityType.Option)
-            {
-                //look in cache
-                if (_optionNameResolver.ContainsKey(pSymbol))
-                    return _optionNameResolver[pSymbol];
-
-                //if it isn't in the cache, try lookup option symbols
-                this.LookupSymbols(pSymbol.Underlying.Value);
-
-                if (_optionNameResolver.ContainsKey(pSymbol))
-                    return _optionNameResolver[pSymbol];
-
-                //TODO: build converter
-                throw new Exception("TradeStation.ConvertToTradestationSymbol: Could not resolve option symbol!");
-            }
-            else
-            {
-                return pSymbol.Value;
-            }
-        }
-
-        protected Symbol ConvertSymbol(string pSymbolName, AssetType3 pAssetType, string pMarket = Market.USA, DateTime? pExpDate = null, OptionRight? pOptionRight = null, double pStrike = 0)
-        {
-            switch(pAssetType)
-            {
-                case AssetType3.Fu:
-                    return Symbol.CreateFuture(pSymbolName, pMarket, (DateTime)pExpDate);
-
-                case AssetType3.Op:
-                    //try to resolve
-                    var symbol = _optionNameResolver.FirstOrDefault((x) => x.Value == pSymbolName).Key;
-                    if (symbol != null)
-                        return symbol;
-
-                    //lookup the options for this base symbol
-                    string assumeBaseSymbol = pSymbolName.Split(' ')[0];
-                    this.LookupSymbols(assumeBaseSymbol, SecurityType.Option);
-                    //try again
-                    symbol = _optionNameResolver.FirstOrDefault((x) => x.Value == pSymbolName).Key;
-                    if (symbol != null)
-                        return symbol;
-
-                    throw new Exception("Failed to resolve symbol " + pSymbolName + " with broker!");
-                case AssetType3.EQ:
-                default:
-                    return Symbol.Create(pSymbolName, SecurityType.Equity, pMarket);
-            }
-        }
+				default:
+					throw new ArgumentOutOfRangeException();
+			}
+		}
 
         /// <summary>
         /// Converts the tradier position into a qc holding
         /// </summary>
         protected Holding ConvertHolding(Anonymous7 position)
         {
-            var symbol = ConvertSymbol(position.Symbol, position.AssetType);
+            var symbol = _symbolMapper.GetLeanSymbol(position.Symbol, position.AssetType);
 
             return new Holding
             {

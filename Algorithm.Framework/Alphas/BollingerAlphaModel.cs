@@ -124,6 +124,8 @@ namespace QuantConnect.Algorithm.Framework.Alphas
         {
             foreach (var added in changes.AddedSecurities)
             {
+				if (!added.Symbol.HasUnderlying) continue;
+
                 SymbolData symbolData;
                 if (!_symbolDataBySymbol.TryGetValue(added.Symbol, out symbolData))
                 {

@@ -46,7 +46,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 			_threshold = threshold;
 			_inverted = inverted;
 			_symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
-            Name = $"{nameof(EmaCrossAlphaModel)}({period},{threshold})";
+            Name = $"{nameof(BollingerAlphaModel)}({period},{threshold})";
         }
 
         /// <summary>
@@ -61,9 +61,14 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             var insights = new List<Insight>();
             foreach (var symbolData in _symbolDataBySymbol.Values)
             {
-                if (symbolData.BB.IsReady)
+                if (data.ContainsKey(symbolData.Symbol) && symbolData.BB.IsReady)
                 {
-					var price = ((TradeBar)data[symbolData.Symbol]).Price;
+					var bar = ((TradeBar)data[symbolData.Symbol]);
+					if (bar == null) return insights;
+
+					symbolData.Update(bar);
+
+					var price = bar.Price;
 					var insightPeriod = _resolution.ToTimeSpan().Multiply(_period);
 					InsightDirection? direction = null;
 
@@ -98,9 +103,9 @@ namespace QuantConnect.Algorithm.Framework.Alphas
 						symbolData.LastDirection = (InsightDirection)direction;
 
 						if (direction == InsightDirection.Down)
-							insights.Add(Insight.Price(symbolData.Symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down));
-						else if (direction == InsightDirection.Up)
 							insights.Add(Insight.Price(symbolData.Symbol, insightPeriod, _inverted ? InsightDirection.Down : InsightDirection.Up));
+						else if (direction == InsightDirection.Up)
+							insights.Add(Insight.Price(symbolData.Symbol, insightPeriod, _inverted ? InsightDirection.Up : InsightDirection.Down));
 						else
 							insights.Add(Insight.Price(symbolData.Symbol, insightPeriod, InsightDirection.Flat));
 					}
@@ -124,13 +129,24 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                 {
                     // create fast/slow EMAs
                     var bb = algorithm.BB(added.Symbol, _period, _threshold);
-					_symbolDataBySymbol[added.Symbol] = new SymbolData
+					symbolData = _symbolDataBySymbol[added.Symbol] = new SymbolData
 					{
 						Security = added,
 						BB = bb,
-						LastDirection = InsightDirection.Flat
-                    };
-                }
+						LastDirection = InsightDirection.Flat,
+						Price = new Series("Price", SeriesType.Line),
+						Upper = new Series("Upper", SeriesType.Line),
+						Middle = new Series("Middle", SeriesType.Line),
+						Lower = new Series("Lower", SeriesType.Line),
+					};
+
+					var chart = new Chart(added.Symbol.Value + " - Bollinger Bands");
+					chart.AddSeries(symbolData.Price);
+					chart.AddSeries(symbolData.Upper);
+					chart.AddSeries(symbolData.Middle);
+					chart.AddSeries(symbolData.Lower);
+					algorithm.AddChart(chart);
+				}
                 else
                 {
                     // a security that was already initialized was re-added, reset the indicators
@@ -139,15 +155,27 @@ namespace QuantConnect.Algorithm.Framework.Alphas
             }
         }
 
-        /// <summary>
-        /// Contains data specific to a symbol required by this model
-        /// </summary>
-        private class SymbolData
-        {
-            public Security Security { get; set; }
-            public Symbol Symbol => Security.Symbol;
-            public BollingerBands BB { get; set; }
+		/// <summary>
+		/// Contains data specific to a symbol required by this model
+		/// </summary>
+		private class SymbolData
+		{
+			public Security Security { get; set; }
+			public Symbol Symbol => Security.Symbol;
+			public BollingerBands BB { get; set; }
 			public InsightDirection LastDirection { get; set; }
+			public Series Price {get;set;} //TODO: this shouldn't be here
+			public Series Upper { get; set; }
+			public Series Lower { get; set; }
+			public Series Middle { get; set; }
+
+			public void Update(TradeBar currentBar)
+			{
+				Price.AddPoint(currentBar.EndTime, currentBar.Close);
+				Upper.AddPoint(BB.UpperBand.Current.EndTime, BB.UpperBand.Current.Price);
+				Middle.AddPoint(BB.MiddleBand.Current.EndTime, BB.MiddleBand.Current.Price);
+				Lower.AddPoint(BB.LowerBand.Current.EndTime, BB.LowerBand.Current.Price);
+			}
 		}
     }
 }

@@ -157,6 +157,7 @@
     <Compile Include="Alphas\ExpiryAlphaModel.cs" />
     <Compile Include="Alphas\ROCStdAlphaModel.cs" />
     <Compile Include="OptionTools.cs" />
+    <Compile Include="Portfolio\CalendarSpreadPortfolioModel.cs" />
     <Compile Include="Portfolio\PUTSpreadPortfolioModel.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -81,9 +81,19 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
             IOrderedEnumerable<OptionContract> options;
 
             options = this.GetITM(algorithm, symbol, OptionRight.Put);
+            if (options.Count() == 0)
+            {
+                algorithm.Log("No valid options found!");
+                return null;
+            }
             var inside = options.ElementAt(0);
 
             options = this.GetITM(algorithm, symbol, OptionRight.Put, -_expirationSpread);
+            if (options.Count() == 0)
+            {
+                algorithm.Log("No valid options found!");
+                return null;
+            }
             var outside = options.ElementAt(0);
 
             return new List<IPortfolioTarget> {

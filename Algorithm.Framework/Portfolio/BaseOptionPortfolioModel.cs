@@ -59,6 +59,8 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 			if (currentHoldings.Count() > 0 ||
 				pendingOrderCount > 0)
 			{
+                this.SanityCheckHoldings(algorithm, currentHoldings);
+
 				if (insight.Direction == InsightDirection.Flat)
 				{
 					//create a target to close holdings
@@ -134,6 +136,20 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
         public bool TryGetOptionChain(QCAlgorithmFramework algorithm, Symbol underlyingSymbol, out OptionChain chain)
         {
             return OptionTools.TryGetOptionChain(algorithm, underlyingSymbol, out chain);
+        }
+
+        public void SanityCheckHoldings(QCAlgorithmFramework algorithm, IEnumerable<OptionHolding> holdings)
+        {
+            holdings.All(o =>
+            {
+                if ((o.Symbol.ID.Date - algorithm.Time).TotalDays < -5)
+                {
+                    throw new Exception("Sanity check: Invalid option holding!!");
+                    //algorithm.Log("Sanity check: Invalid option holding!!");
+                    //this.LiquidateOptions(algorithm, holdings);
+                }
+                return true;
+            });
         }
 
         /// <summary>

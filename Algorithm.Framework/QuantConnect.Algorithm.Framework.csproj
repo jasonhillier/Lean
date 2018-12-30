@@ -76,6 +76,7 @@
     <Compile Include="Alphas\AlphaModelPythonWrapper.cs" />
     <Compile Include="Alphas\BollingerAlphaModel.cs" />
     <Compile Include="Alphas\FixedPriceAlphaModel.cs" />
+    <Compile Include="Alphas\ContangoStdAlphaModel.cs" />
     <Compile Include="Alphas\OptionTimerAlphaModel.cs" />
     <Compile Include="Alphas\MaxPainStdAlphaModel.cs" />
     <Compile Include="Alphas\OptionAlphaModel.cs" />

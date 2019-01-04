@@ -25,14 +25,14 @@ using QuantConnect.Securities.Option;
 namespace QuantConnect.Algorithm.Framework.Portfolio
 {
     /// <summary>
-    /// Opens an OTM put if going down, or an OTM call if going up.
+    /// Opens a deep ITM put if going down
     /// </summary>
     public class PUTLadderPortfolioModel : BaseOptionPortfolioModel
     {
         private readonly int _distance;
 
 		public PUTLadderPortfolioModel()
-			: this(2,2,30)
+			: this(10,2,30)
 		{
 		}
 
@@ -59,6 +59,8 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 
 		protected virtual List<IPortfolioTarget> IncrementOptionPositions(QCAlgorithmFramework algorithm, Symbol baseSymbol, IEnumerable<OptionHolding> holdings, Insight insight)
 		{
+			//TODO: option to close prior step/position
+
 			return FindPotentialOptions(algorithm, baseSymbol, insight);
 		}
 
@@ -68,7 +70,7 @@ namespace QuantConnect.Algorithm.Framework.Portfolio
 			if (insight.Direction != InsightDirection.Down)
 				return null;
 
-            int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
+			int mag = (int)(insight.Magnitude == null ? 1 : Math.Round((decimal)insight.Magnitude));
 
             var options = this.GetITM(algorithm, symbol, OptionRight.Put);
             if (options == null || options.Count() <= _distance)

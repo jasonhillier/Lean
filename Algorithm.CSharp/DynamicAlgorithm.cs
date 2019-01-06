@@ -34,7 +34,7 @@ namespace QuantConnect.Algorithm.CSharp
     /// This algorithm shows how the execution model works to split up orders and submit them only when
     /// the price is on the favorable side of the intraday VWAP.
     /// </summary>
-    public class DynamicAlgorithim : QCAlgorithmFramework
+    public class DynamicAlgorithm : QCAlgorithmFramework
     {
         private decimal _takeProfit = 0;
 		private decimal _stopLoss = 0;

@@ -226,7 +226,7 @@
     <Compile Include="CoveredOptionsAlgorithim.cs" />
     <Compile Include="OptionStrategy\OptionTraverseStrategy.cs" />
     <Compile Include="OptionsTraverseAlgo.cs" />
-    <Compile Include="DynamicAlgorithim.cs" />
+    <Compile Include="DynamicAlgorithm.cs" />
     <Compile Include="DataIntegrityCheck.cs" />
     <Compile Include="FuturesBrownianAlgorithm.cs" />
   </ItemGroup>

@@ -20,6 +20,7 @@ using QuantConnect.Data;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
 using QuantConnect.Indicators;
+using QuantConnect.Data.Consolidators;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -29,29 +30,29 @@ namespace QuantConnect.Algorithm.CSharp
     /// //for now, we'll just look at recent HV and trade in calm market.
     public class FuturesBrownianAlgorithm : QCAlgorithm
     {
-        private const decimal _tolerance = 0.001m;
-        private const int _fastPeriod = 20;
-        private const int _slowPeriod = 60;
+        private const int _fastPeriod = 60;
 
         private ExponentialMovingAverage _fast;
         private ExponentialMovingAverage _slow;
 
-        private Securities.Future.Future _Symbol;
-        private int _pendingOrderId = 0;
+        private Symbol _Symbol;
+        private OrderTicket _pendingEntry = null;
+        private decimal _entrySpread = 0.5m;
         private decimal _profitSpread = 2;
         private decimal _lossSpread = 10;
         private MeanAbsoluteDeviation _devIndicator;
+        private bool _hasInitialized = false;
 
-        public bool IsReady { get { return _fast.IsReady && _slow.IsReady; } }
-        public bool IsUpTrend { get { return IsReady && _fast > _slow * (1 + _tolerance); } }
-        public bool IsDownTrend { get { return IsReady && _fast < _slow * (1 + _tolerance); } }
+        //public bool IsReady { get { return _fast.IsReady && _slow.IsReady; } }
+       //public bool IsUpTrend { get { return IsReady && _fast > _slow * (1 + _tolerance); } }
+        //public bool IsDownTrend { get { return IsReady && _fast < _slow * (1 + _tolerance); } }
 
         public override void Initialize()
         {
             SetStartDate(2016, 1, 1);
             SetEndDate(2016, 8, 18);
             SetCash(100000);
-            SetWarmUp(Math.Max(_fastPeriod, _slowPeriod));
+            //SetWarmUp(Math.Max(_fastPeriod, _slowPeriod));
 
             // Adds SPY to be used in our EMA indicators
             /*
@@ -62,29 +63,49 @@ namespace QuantConnect.Algorithm.CSharp
 
             // Adds the future that will be traded and
             // set our expiry filter for this futures chain
-            _Symbol = AddFuture(Futures.Indices.SP500EMini, Resolution.Minute);
-            _Symbol.SetFilter(TimeSpan.FromDays(10), TimeSpan.FromDays(45));
-            var con = ResolveConsolidator(_Symbol.Symbol, new TimeSpan(0, 1, 0));
-            con.DataConsolidated += Con_DataConsolidated;
+            var future = AddFuture(Futures.Indices.SP500EMini);
+            future.SetFilter(TimeSpan.Zero, TimeSpan.FromDays(180));
 
-            _devIndicator = MAD(_Symbol.Symbol, _fastPeriod, Resolution.Minute);
+            //SetBenchmark(x => 0);
         }
 
-        void Con_DataConsolidated(object sender, IBaseData consolidated)
+        void Consolidator_DataConsolidated(object sender, Data.Market.QuoteBar e)
         {
-            Console.WriteLine("log" + consolidated.Time.ToString());
+            Console.WriteLine("PRICE=" + e.Price);
+
+            if (Portfolio.GetHoldingsQuantity(_Symbol) == 0)
+            {
+                if (_pendingEntry != null)
+                {
+                    Transactions.CancelOrder(_pendingEntry.OrderId);
+                    _pendingEntry = null;
+                }
+
+                Console.WriteLine("dev=" + _devIndicator.Current.Value);
+                if (_devIndicator.Current.Value < 10)
+                {
+                    this.SetupOrder(e);
+                }
+            }
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
         {
             Log(orderEvent.ToString());
 
-            if (orderEvent.OrderId == _pendingOrderId &&
-                orderEvent.Status == OrderStatus.Filled)
+            if (orderEvent.Status == OrderStatus.Filled)
             {
-                Console.WriteLine("entry fill! " + orderEvent.FillQuantity);
-                //submit bracket orders
-                SetupBracket(orderEvent);
+                if (_pendingEntry != null && orderEvent.OrderId == _pendingEntry.OrderId)
+                {
+                    Console.WriteLine("entry fill! " + orderEvent.FillQuantity);
+                    //submit bracket orders
+                    SetupBracket(orderEvent);
+                }
+                else
+                {
+                    Console.WriteLine("bracket fill! " + orderEvent.FillQuantity);
+                    Transactions.CancelOpenOrders(_Symbol);
+                }
             }
         }
 
@@ -92,84 +113,69 @@ namespace QuantConnect.Algorithm.CSharp
         {
             Console.WriteLine("log_ondata" + slice.Time.ToString() + " " + slice.FutureChains.Count);
 
-            if (!Portfolio.Invested)
+            if (!_hasInitialized)
             {
-                Console.WriteLine("dev=" + _devIndicator.Current.Value);
-                if (_devIndicator.Current.Value < 10)
+                foreach(var chain in slice.FutureChains)
                 {
-                    this.SetupOrder();
-                }
-            }
-            /*
-            if (!Portfolio.Invested) // && IsUpTrend)
-            {
-                foreach (var chain in slice.FutureChains)
-                {
+                    Console.WriteLine("has chain");
+
                     // find the front contract expiring no earlier than in 90 days
                     var contract = (
                         from futuresContract in chain.Value.OrderBy(x => x.Expiry)
-                        where futuresContract.Expiry > Time.Date.AddDays(90)
+                        where futuresContract.Expiry > Time.Date.AddDays(10)
                         select futuresContract
                         ).FirstOrDefault();
 
-                    // if found, trade it
-                    if (contract != null)
-                    {
-                        MarketOrder(contract.Symbol, 1);
-                    }
+                    _Symbol = contract.Symbol;
+
+                    var consolidator = new QuoteBarConsolidator(TimeSpan.FromMinutes(1));
+                    consolidator.DataConsolidated += Consolidator_DataConsolidated;
+                    SubscriptionManager.AddConsolidator(contract.Symbol, consolidator);
+
+                    _devIndicator = MAD(_Symbol, _fastPeriod, Resolution.Minute);
+
+                    Log("Added new consolidator for " + _Symbol.Value);
+                    _hasInitialized = true;
                 }
             }
-
-            if (Portfolio.Invested && IsDownTrend)
-            {
-                Liquidate();
-            }
-            */
         }
+
 
         public void SetupBracket(OrderEvent orderEvent)
         {
-            int quantity = 1;
+            int quantity = 0;
             decimal profit = 0; decimal loss = 0;
 
             if (orderEvent.Direction == OrderDirection.Buy)
             {
+                quantity = 1;
+
                 profit = orderEvent.FillPrice + _profitSpread;
                 loss = orderEvent.FillPrice - _lossSpread;
             }
             else if (orderEvent.Direction == OrderDirection.Sell)
             {
+                quantity = -1;
+
                 profit = orderEvent.FillPrice - _profitSpread;
                 loss = orderEvent.FillPrice + _lossSpread;
             }
 
-            this.StopLimitOrder(_Symbol.Symbol, quantity, loss, loss);
-            this.LimitOrder(_Symbol.Symbol, quantity, profit);
+            this.StopLimitOrder(_Symbol, -quantity, loss, loss);
+            this.LimitOrder(_Symbol, -quantity, profit);
         }
 
-        public void SetupOrder()
+        public void SetupOrder(Data.Market.QuoteBar bar)
         {
-            var chain = this.CurrentSlice.FutureChains.First();
-
-            // find the front contract expiring no earlier than in 90 days
-            var contract = (
-                from futuresContract in chain.Value.OrderBy(x => x.Expiry)
-                where futuresContract.Expiry > Time.Date.AddDays(90)
-                select futuresContract
-                ).FirstOrDefault();
-
-            // if found, trade it
-            if (contract != null)
-            {
-                //MarketOrder(contract.Symbol, 1);
-                var order = this.LimitOrder(_Symbol.Symbol, 1, contract.BidPrice - 1);
-                _pendingOrderId = order.OrderId;
-            }
+            //MarketOrder(contract.Symbol, 1);
+            _pendingEntry = this.LimitOrder(_Symbol, 1, bar.Bid.Close - _entrySpread);
         }
 
+        /*
         public override void OnEndOfDay()
         {
             Plot("Indicator Signal", "EOD", IsDownTrend ? -1 : IsUpTrend ? 1 : 0);
         }
+        */
     }
 }

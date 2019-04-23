@@ -2,3 +2,4 @@ packages/
 .git/
 .vs/
 .nuget/
+Data/

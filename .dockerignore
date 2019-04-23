@@ -1,4 +1,4 @@
-*/packages/*
-*/.git/*
-*/.vs/*
-*/.nuget/*
+packages/
+.git/
+.vs/
+.nuget/

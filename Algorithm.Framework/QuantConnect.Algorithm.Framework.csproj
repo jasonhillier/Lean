@@ -160,6 +160,7 @@
     <Compile Include="OptionTools.cs" />
     <Compile Include="Portfolio\CalendarSpreadPortfolioModel.cs" />
     <Compile Include="Portfolio\PUTSpreadPortfolioModel.cs" />
+    <Compile Include="Execution\NotifyExecutionModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">
@@ -173,6 +174,10 @@
     <ProjectReference Include="..\Indicators\QuantConnect.Indicators.csproj">
       <Project>{73fb2522-c3ed-4e47-8e3d-afad48a6b888}</Project>
       <Name>QuantConnect.Indicators</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Configuration\QuantConnect.Configuration.csproj">
+      <Project>{0AEB4EA3-28C8-476E-89FD-926F06590B4C}</Project>
+      <Name>QuantConnect.Configuration</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

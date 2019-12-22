@@ -6,15 +6,15 @@
 	// two predefined environments, 'backtesting' and 'live', feel free
 	// to add more!
 
-	"environment": "live-tradestation", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
+  "environment": "live-interactive", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
 
 	"debug-mode": false,
 	// algorithm class selector
-	"algorithm-type-name": "BasicTemplateOptionsAlgorithm", //"BasicTemplateOptionsAlgorithm",
+  "algorithm-type-name": "OptionsCalcAlgorithm", //"DynamicAlgorithm",FuturesBrownianAlgorithm
 
 	// Algorithm language selector - options CSharp, FSharp, VisualBasic, Python, Java
 	"algorithm-language": "CSharp",
-
+  
 	//Physical DLL location
 	"algorithm-location": "QuantConnect.Algorithm.CSharp.dll",
 	//"algorithm-location": "../../../Algorithm.Python/BasicTemplateAlgorithm.py",
@@ -24,7 +24,7 @@
 
 	// engine
 	"data-folder": "../../../Data/",
-
+  
 	// handlers
 	"log-handler": "QuantConnect.Logging.CompositeLogHandler",
 	"messaging-handler": "QuantConnect.Messaging.Messaging",
@@ -35,20 +35,22 @@
 	"data-provider": "QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider",
 	"alpha-handler": "QuantConnect.Lean.Engine.Alphas.DefaultAlphaHandler",
 
-	"aws-id": "zzz",
-	"aws-key": "zzz",
+    "aws-id": "AKIAI3THG4KMA7ZXULHQ",
+    "aws-key": "3JbKaBpyYLIgkWUOdkikIdady3BZeN2wYPpgJNF4",
 	"es-index": "backtests",
 	"es-user": "none",
 	"es-pwd": "none",
 	"es-server": "none",
-
+    "slack-hook": "https://hooks.slack.com/services/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",
+  
 	// limits on number of symbols to allow
 	"symbol-minute-limit": 100000,
 	"symbol-second-limit": 10000,
 	"symbol-tick-limit": 10000,
+    "maximum-data-points-per-chart-series": 40000,
 
-	// if one uses true in following token, market hours will remain open all hours and all days.
-	// if one uses false will make lean operate only during regular market hours.
+  // if one uses true in following token, market hours will remain open all hours and all days.
+  // if one uses false will make lean operate only during regular market hours.
 	"force-exchange-always-open": false,
 
 	// save list of transactions to the specified csv file
@@ -61,7 +63,7 @@
 	// live data configuration
 	"live-data-url": "ws://www.quantconnect.com/api/v2/live/data/",
 	"live-data-port": 8020,
-
+  
 	// interactive brokers configuration
 	"ib-account": "",
 	"ib-user-name": "",
@@ -121,9 +123,13 @@
 	// parameters to set in the algorithm
 	"parameters": {
 		"symbol": "VXX",
-		"start-date": "2017-01-01",
+		"start-date": "2018-01-01",
 		"end-date": "2018-02-01",
-		"target-profit": "0.5"
+		"target-profit": "0",
+        "inverted": true,
+        "alpha-model": "BollingerAlphaModel",
+        "portfolio-model": "OTMLottoPortfolioModel",
+        "execution-model": "NotifyExecutionModel"
 	},
 	// parameters to set in the algorithm (for optimizer job generation)
 	"parameter-ranges": {

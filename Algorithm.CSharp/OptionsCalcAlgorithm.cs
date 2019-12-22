@@ -37,19 +37,20 @@ namespace QuantConnect.Algorithm.CSharp
     {
         private const Resolution RESOLUTION = Resolution.Minute;
 		private const int MINUTE_RATE = 15;
-        private const string UnderlyingTicker = "AAPL";
+        private string UnderlyingTicker = "AAPL";
         private const int _ROC_THRESHOLD = 10;
-        public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
-        public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
+        //public readonly Symbol Underlying = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Equity, Market.USA);
+        //public readonly Symbol OptionSymbol = QuantConnect.Symbol.Create(UnderlyingTicker, SecurityType.Option, Market.USA);
         private OptionStatistics _Statistics;
         private RateOfChangePercent _rocp;
 		private Slice _lastSlice;
 
 		public override void Initialize()
         {
+            this.UnderlyingTicker = this.GetParameter("symbol");
 			//AAPL
-			SetStartDate(2014, 06, 06);
-			SetEndDate(2014, 06, 06);
+			SetStartDate(2018, 06, 06);
+			SetEndDate(2018, 06, 06);
 
 			//
 			//SetStartDate(2018, 03, 01);
@@ -68,8 +69,8 @@ namespace QuantConnect.Algorithm.CSharp
 			var consolidator = new TradeBarConsolidator(TimeSpan.FromMinutes(MINUTE_RATE));
 			consolidator.DataConsolidated += Consolidator_DataConsolidated;
 			_rocp = new RateOfChangePercent(9);
-			RegisterIndicator(Underlying, _rocp, consolidator);
-			SubscriptionManager.AddConsolidator(Underlying, consolidator);
+            RegisterIndicator(equity.Symbol, _rocp, consolidator);
+            SubscriptionManager.AddConsolidator(equity.Symbol, consolidator);
 
 			// init strategy
 			_Statistics = new OptionStatistics(this, option);
@@ -77,7 +78,7 @@ namespace QuantConnect.Algorithm.CSharp
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
 		{
-			if (IsMarketOpen(OptionSymbol))
+            if (IsMarketOpen(e.Symbol))
 			{
 				if (_Statistics.ComputeChain(_lastSlice, e.EndTime))
 				{

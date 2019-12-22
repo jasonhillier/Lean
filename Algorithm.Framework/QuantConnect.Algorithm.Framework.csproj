@@ -161,6 +161,7 @@
     <Compile Include="Portfolio\CalendarSpreadPortfolioModel.cs" />
     <Compile Include="Portfolio\PUTSpreadPortfolioModel.cs" />
     <Compile Include="Execution\NotifyExecutionModel.cs" />
+    <Compile Include="Portfolio\BagHolderModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Algorithm\QuantConnect.Algorithm.csproj">

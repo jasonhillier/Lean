@@ -4,3 +4,4 @@ packages/
 .nuget/
 Data/
 bin/
+obj/

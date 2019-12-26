@@ -18,12 +18,10 @@ ADD . .
 #	unzip master.zip -d /root/Lean && \
 #	cd /root/Lean
 RUN nuget update -self
-RUN \
 	#sed -i 's/4.5/4.0/' Algorithm.VisualBasic/QuantConnect.Algorithm.VisualBasic.vbproj && \
-	nuget restore QuantConnect.Lean.sln -NonInteractive && \
-	xbuild /t:clean /property:Configuration=Release && \
-	cd /root/Lean/Launcher/bin/Release/
-
+RUN nuget restore QuantConnect.Lean.sln -NonInteractive
+RUN xbuild /t:clean /property:Configuration=Release
+RUN xbuild /property:Configuration=Release
 
 ################################
 # Option 2: Run Local Binaries:

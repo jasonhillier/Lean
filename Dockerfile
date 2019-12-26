@@ -21,7 +21,7 @@ RUN nuget update -self
 RUN \
 	#sed -i 's/4.5/4.0/' Algorithm.VisualBasic/QuantConnect.Algorithm.VisualBasic.vbproj && \
 	nuget restore QuantConnect.Lean.sln -NonInteractive && \
-	xbuild /property:Configuration=Release && \
+	xbuild /t:clean /property:Configuration=Release && \
 	cd /root/Lean/Launcher/bin/Release/
 
 

@@ -4,4 +4,6 @@ packages
 .nuget
 Data
 bin
+Debug
+Release
 obj

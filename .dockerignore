@@ -1,7 +1,7 @@
-packages/
-.git/
-.vs/
-.nuget/
-Data/
-bin/
-obj/
+packages
+.git
+.vs
+.nuget
+Data
+bin
+obj

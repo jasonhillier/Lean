@@ -2,6 +2,7 @@ packages/
 .git/
 .vs/
 .nuget/
-Data/
+Data/equity/
+Data/options/
 **/bin
 **/obj

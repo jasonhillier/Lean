@@ -80,7 +80,7 @@ namespace QuantConnect.Algorithm.CSharp
 		{
             if (IsMarketOpen(e.Symbol))
 			{
-                Debug("Market open.");
+                Log("Market open.");
 
 				if (_Statistics.ComputeChain(_lastSlice, e.EndTime))
 				{
@@ -89,7 +89,7 @@ namespace QuantConnect.Algorithm.CSharp
 			}
             else
             {
-                Debug("Market is closed.");
+                Log("Market is closed.");
             }
 		}
 

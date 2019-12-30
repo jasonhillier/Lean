@@ -30,8 +30,8 @@ namespace QuantConnect.Algorithm.CSharp
             Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
 
             // set our strike/expiry filter for this option chain
-            _Option.SetFilter(u => u.Strikes(-10, +20)
-                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(180)));
+            _Option.SetFilter(u => u.Strikes(-10, +15)
+                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(120)));
         }
 
         public OptionChain GetOptionChain(Slice slice)

@@ -124,13 +124,13 @@
 
   // parameters to set in the algorithm
   "parameters": {
-    "symbol": "VXX",
+    "symbol": "SPY",
     "start-date": "2018-01-01",
     "end-date": "2018-02-01",
     "target-profit": "0",
-        "inverted": true,
-        "alpha-model": "BollingerAlphaModel",
-        "portfolio-model": "OTMLottoPortfolioModel",
+        "inverted": false,
+        "alpha-model": "IVStdAlphaModel",
+        "portfolio-model": "NullOptionPortfolioModel",
         "execution-model": "NotifyExecutionModel"
   },
   // parameters to set in the algorithm (for optimizer job generation)

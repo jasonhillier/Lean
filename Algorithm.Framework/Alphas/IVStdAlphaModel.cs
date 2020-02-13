@@ -31,6 +31,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
     /// </summary>
     public class IVStdAlphaModel : OptionAlphaModel
     {
+        const int STRIKE_SPREAD = 2;
         private readonly Dictionary<Symbol, SymbolData> _symbolDataBySymbol = new Dictionary<Symbol, SymbolData>();
 
         private readonly int _period;
@@ -84,7 +85,7 @@ namespace QuantConnect.Algorithm.Framework.Alphas
                     return insights;
                 //compute IV from some ATM options
                 decimal iv = 0;
-                var options = chain.Where((o) => o.UnderlyingLastPrice > o.Strike - 1 && o.UnderlyingLastPrice < o.Strike + 1);
+                var options = chain.Where((o) => o.UnderlyingLastPrice > o.Strike - STRIKE_SPREAD && o.UnderlyingLastPrice < o.Strike + STRIKE_SPREAD);
                 if (options.Count() < 2)
                 {
                     algorithm.Log("No options available to compute IV!");

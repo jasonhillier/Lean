@@ -49,8 +49,8 @@ namespace QuantConnect.Algorithm.CSharp
         {
             this.UnderlyingTicker = this.GetParameter("symbol");
 			//AAPL
-			SetStartDate(2018, 06, 06);
-			SetEndDate(2018, 06, 06);
+			SetStartDate(2018, 01, 01);
+			SetEndDate(2018, 11, 30);
 
 			//
 			//SetStartDate(2018, 03, 01);
@@ -78,6 +78,9 @@ namespace QuantConnect.Algorithm.CSharp
 
 		private void Consolidator_DataConsolidated(object sender, TradeBar e)
 		{
+            if (_lastSlice == null)
+                return; //skip
+
             if (IsMarketOpen(e.Symbol))
 			{
                 Log("Market open.");
@@ -91,6 +94,8 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 Log("Market is closed.");
             }
+
+            _lastSlice = null;
 		}
 
 		/// <summary>

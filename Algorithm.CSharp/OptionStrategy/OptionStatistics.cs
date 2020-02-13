@@ -20,18 +20,18 @@ namespace QuantConnect.Algorithm.CSharp
         protected string _PackagedData = null;
         private Int64 _TotalStoredBytes = 0;
 
-        public OptionStatistics(QCAlgorithm Algo, Option Option, string Storage = "options-vxx")
+        public OptionStatistics(QCAlgorithm Algo, Option Option, string Storage = "options-")
         {
             _Algo = Algo;
             _Option = Option;
             _OptionSymbol = Option.Symbol;
-            _Storage = Storage;
+            _Storage = Storage + _OptionSymbol.Value.Replace("?", "").ToLower();
 
             Console.WriteLine("SECURITY ID = " + _OptionSymbol.Value);
 
             // set our strike/expiry filter for this option chain
             _Option.SetFilter(u => u.Strikes(-10, +15)
-                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(120)));
+                                   .Expiration(TimeSpan.Zero, TimeSpan.FromDays(180)));
         }
 
         public OptionChain GetOptionChain(Slice slice)
@@ -155,7 +155,7 @@ namespace QuantConnect.Algorithm.CSharp
             String password = "data*123";
             String encoded = System.Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
 
-			HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://es.hillier.us/_bulk");
+			HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://es.hillier.us/_bulk");
 			request.Headers.Add("Authorization", "Basic " + encoded);
             request.Method = "PUT";
             request.AutomaticDecompression = DecompressionMethods.GZip;
